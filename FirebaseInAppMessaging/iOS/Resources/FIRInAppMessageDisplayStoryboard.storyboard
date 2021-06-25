@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="18122" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES">
     <device id="retina6_5" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="18093"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -60,63 +60,77 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="VfB-vw-7up">
-                                <rect key="frame" x="5" y="47" width="60" height="60"/>
-                                <accessibility key="accessibilityConfiguration" identifier="banner-image-view" label="In-app message image">
-                                    <bool key="isElement" value="YES"/>
-                                </accessibility>
+                            <stackView opaque="NO" contentMode="scaleToFill" alignment="center" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="wfy-Ds-SJY">
+                                <rect key="frame" x="16" y="44" width="382" height="64"/>
+                                <subviews>
+                                    <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="VfB-vw-7up">
+                                        <rect key="frame" x="0.0" y="0.0" width="64" height="64"/>
+                                        <accessibility key="accessibilityConfiguration" identifier="banner-image-view" label="In-app message image">
+                                            <bool key="isElement" value="YES"/>
+                                        </accessibility>
+                                        <constraints>
+                                            <constraint firstAttribute="width" secondItem="VfB-vw-7up" secondAttribute="height" id="A6h-d0-gSV"/>
+                                            <constraint firstAttribute="height" constant="64" id="YXP-HZ-CYR"/>
+                                        </constraints>
+                                    </imageView>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="SdS-ev-Fzd">
+                                        <rect key="frame" x="80" y="0.0" width="302" height="64"/>
+                                        <subviews>
+                                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="4" translatesAutoresizingMaskIntoConstraints="NO" id="fIB-Li-qva">
+                                                <rect key="frame" x="0.0" y="13" width="302" height="38"/>
+                                                <subviews>
+                                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Messaging Title" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="rzo-9i-rXZ">
+                                                        <rect key="frame" x="0.0" y="0.0" width="302" height="17"/>
+                                                        <accessibility key="accessibilityConfiguration" identifier="banner-message-title-view"/>
+                                                        <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
+                                                        <nil key="textColor"/>
+                                                        <nil key="highlightedColor"/>
+                                                    </label>
+                                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" text="message body" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="2" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="GOK-vx-mU8">
+                                                        <rect key="frame" x="0.0" y="21" width="302" height="17"/>
+                                                        <accessibility key="accessibilityConfiguration" identifier="banner-body-label"/>
+                                                        <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
+                                                        <nil key="textColor"/>
+                                                        <nil key="highlightedColor"/>
+                                                    </label>
+                                                </subviews>
+                                            </stackView>
+                                        </subviews>
+                                        <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                        <constraints>
+                                            <constraint firstItem="fIB-Li-qva" firstAttribute="centerY" secondItem="SdS-ev-Fzd" secondAttribute="centerY" id="9NP-dK-ZsX"/>
+                                            <constraint firstItem="fIB-Li-qva" firstAttribute="leading" secondItem="SdS-ev-Fzd" secondAttribute="leading" id="Uq7-FM-Lcv"/>
+                                            <constraint firstItem="fIB-Li-qva" firstAttribute="top" relation="greaterThanOrEqual" secondItem="SdS-ev-Fzd" secondAttribute="top" constant="4" id="gpS-ga-D5B"/>
+                                            <constraint firstAttribute="trailing" secondItem="fIB-Li-qva" secondAttribute="trailing" id="krS-Sk-Hbf"/>
+                                            <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="fIB-Li-qva" secondAttribute="bottom" constant="4" id="unh-FN-Td3"/>
+                                        </constraints>
+                                    </view>
+                                </subviews>
+                                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="60" id="VeB-9w-mcK"/>
-                                    <constraint firstAttribute="height" constant="60" id="YXP-HZ-CYR"/>
+                                    <constraint firstItem="SdS-ev-Fzd" firstAttribute="centerY" secondItem="wfy-Ds-SJY" secondAttribute="centerY" id="xhL-8I-9cL"/>
                                 </constraints>
-                            </imageView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Messaging Title" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="rzo-9i-rXZ">
-                                <rect key="frame" x="70" y="47" width="324" height="20.333333333333329"/>
-                                <accessibility key="accessibilityConfiguration" identifier="banner-message-title-view"/>
-                                <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" text="message body" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="GOK-vx-mU8">
-                                <rect key="frame" x="70" y="75.333333333333343" width="324" height="286.66666666666663"/>
-                                <accessibility key="accessibilityConfiguration" identifier="banner-body-label"/>
-                                <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
+                            </stackView>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
                         <accessibility key="accessibilityConfiguration" identifier="banner-mode-uiview"/>
                         <constraints>
-                            <constraint firstItem="GOK-vx-mU8" firstAttribute="trailing" secondItem="rzo-9i-rXZ" secondAttribute="trailing" id="7F2-Ym-Zcr"/>
-                            <constraint firstItem="GOK-vx-mU8" firstAttribute="top" secondItem="rzo-9i-rXZ" secondAttribute="bottom" constant="8" id="7UW-P0-lff"/>
-                            <constraint firstItem="K7E-8I-Yw5" firstAttribute="top" secondItem="GOK-vx-mU8" secondAttribute="bottom" constant="500" placeholder="YES" id="98u-DD-WbS">
-                                <variation key="heightClass=compact" constant="300"/>
-                            </constraint>
-                            <constraint firstItem="GOK-vx-mU8" firstAttribute="leading" secondItem="rzo-9i-rXZ" secondAttribute="leading" id="J6L-hu-jV6"/>
-                            <constraint firstItem="VfB-vw-7up" firstAttribute="leading" secondItem="vRb-yf-OWE" secondAttribute="leading" constant="5" id="gGt-ku-pPu"/>
-                            <constraint firstItem="rzo-9i-rXZ" firstAttribute="top" secondItem="lHf-Ux-dEc" secondAttribute="bottom" constant="3" placeholder="YES" id="hhi-1K-2YO"/>
-                            <constraint firstItem="VfB-vw-7up" firstAttribute="top" secondItem="rzo-9i-rXZ" secondAttribute="top" id="nF9-EZ-bjS"/>
-                            <constraint firstAttribute="trailingMargin" secondItem="rzo-9i-rXZ" secondAttribute="trailing" id="pOl-wC-mqq"/>
-                            <constraint firstItem="rzo-9i-rXZ" firstAttribute="leading" secondItem="VfB-vw-7up" secondAttribute="trailing" constant="5" id="vSo-6t-cZ0"/>
+                            <constraint firstItem="wfy-Ds-SJY" firstAttribute="leading" secondItem="vRb-yf-OWE" secondAttribute="leading" constant="16" id="KmA-iL-xZ7"/>
+                            <constraint firstItem="K7E-8I-Yw5" firstAttribute="top" relation="greaterThanOrEqual" secondItem="wfy-Ds-SJY" secondAttribute="bottom" id="gR9-YA-xf9"/>
+                            <constraint firstItem="wfy-Ds-SJY" firstAttribute="top" secondItem="lHf-Ux-dEc" secondAttribute="bottom" id="sDh-fT-l3i"/>
+                            <constraint firstAttribute="trailing" secondItem="wfy-Ds-SJY" secondAttribute="trailing" constant="16" id="sJp-lD-cdh"/>
                         </constraints>
-                        <variation key="heightClass=compact">
-                            <mask key="constraints">
-                                <include reference="98u-DD-WbS"/>
-                            </mask>
-                        </variation>
                     </view>
                     <connections>
                         <outlet property="bodyLabel" destination="GOK-vx-mU8" id="Imh-8H-gV2"/>
                         <outlet property="imageView" destination="VfB-vw-7up" id="nQ8-F0-E1B"/>
                         <outlet property="imageViewHeightConstraint" destination="YXP-HZ-CYR" id="LkE-1F-wWT"/>
-                        <outlet property="imageViewWidthConstraint" destination="VeB-9w-mcK" id="spy-OE-m8M"/>
                         <outlet property="titleLabel" destination="rzo-9i-rXZ" id="zNO-5d-uSe"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="KDw-z5-Fl1" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="-7.2000000000000002" y="-174.06296851574214"/>
+            <point key="canvasLocation" x="-7.2463768115942031" y="-174.10714285714286"/>
         </scene>
         <!--Modal View Controller-->
         <scene sceneID="hvu-tO-txi">
@@ -387,8 +401,8 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <view clipsSubviews="YES" contentMode="scaleToFill" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Aft-rr-icV" userLabel="Card view">
-                                <rect key="frame" x="87" y="87" width="240" height="240"/>
+                            <view clipsSubviews="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Aft-rr-icV" userLabel="Card view">
+                                <rect key="frame" x="87" y="84" width="240" height="728"/>
                                 <subviews>
                                     <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="gB0-8W-G9z">
                                         <rect key="frame" x="0.0" y="0.0" width="240" height="160"/>
@@ -429,17 +443,17 @@
                                         </variation>
                                     </imageView>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" text="Title" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="oVh-9O-yfC" userLabel="Title label">
-                                        <rect key="frame" x="24" y="184" width="192" height="26.333333333333343"/>
+                                        <rect key="frame" x="24" y="184" width="192" height="23"/>
                                         <accessibility key="accessibilityConfiguration" identifier="card-title-label"/>
                                         <fontDescription key="fontDescription" style="UICTFontTextStyleTitle2"/>
                                         <nil key="textColor"/>
                                         <nil key="highlightedColor"/>
                                     </label>
                                     <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Tmr-ar-k7h">
-                                        <rect key="frame" x="24" y="234.33333333333331" width="192" height="38"/>
+                                        <rect key="frame" x="24" y="231" width="192" height="35"/>
                                         <subviews>
                                             <textView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" verticalHuggingPriority="1000" scrollEnabled="NO" contentInsetAdjustmentBehavior="never" editable="NO" text="Label" textAlignment="natural" selectable="NO" translatesAutoresizingMaskIntoConstraints="NO" id="elG-N9-aqH" userLabel="Body text view">
-                                                <rect key="frame" x="0.0" y="0.0" width="192" height="38"/>
+                                                <rect key="frame" x="0.0" y="0.0" width="192" height="35"/>
                                                 <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                 <accessibility key="accessibilityConfiguration" identifier="card-body-text-view"/>
                                                 <fontDescription key="fontDescription" style="UICTFontTextStyleBody"/>
@@ -455,8 +469,8 @@
                                             <constraint firstItem="elG-N9-aqH" firstAttribute="width" secondItem="Tmr-ar-k7h" secondAttribute="width" id="dXF-bM-hYF"/>
                                         </constraints>
                                     </scrollView>
-                                    <button opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="251" verticalCompressionResistancePriority="1000" ambiguous="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="aZE-3x-WHk" userLabel="Primary action button">
-                                        <rect key="frame" x="163" y="186" width="53" height="30"/>
+                                    <button opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="251" verticalCompressionResistancePriority="1000" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="aZE-3x-WHk" userLabel="Primary action button">
+                                        <rect key="frame" x="163" y="674" width="53" height="30"/>
                                         <accessibility key="accessibilityConfiguration" identifier="card-primary-action-button"/>
                                         <constraints>
                                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="44" id="pxm-yD-xhm"/>
@@ -466,8 +480,8 @@
                                             <action selector="primaryActionButtonTapped:" destination="oTF-1C-LZP" eventType="touchUpInside" id="Jk0-dp-Qgj"/>
                                         </connections>
                                     </button>
-                                    <button hidden="YES" opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" ambiguous="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Feg-VM-jUf" userLabel="Secondary action button">
-                                        <rect key="frame" x="65" y="186" width="74" height="30"/>
+                                    <button hidden="YES" opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Feg-VM-jUf" userLabel="Secondary action button">
+                                        <rect key="frame" x="65" y="674" width="74" height="30"/>
                                         <accessibility key="accessibilityConfiguration" identifier="card-secondary-action-button"/>
                                         <constraints>
                                             <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="44" id="bpF-9w-pDe"/>

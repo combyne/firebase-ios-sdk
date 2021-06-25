@@ -143,10 +143,12 @@ static const CGFloat kSwipeUpThreshold = -10.0f;
     }
     self.imageView.image = image;
     self.imageView.accessibilityLabel = self.inAppMessage.campaignInfo.campaignName;
+    self.imageView.hidden = NO;
   } else {
     // Hide image and remove the bottom constraint between body label and image view.
     self.imageViewWidthConstraint.constant = 0;
     self.imageBottomAlignWithBodyLabelBottomConstraint.active = NO;
+    self.imageView.hidden = YES;
   }
 
   // Set some rendering effects based on settings.
@@ -327,3 +329,4 @@ static const CGFloat kSwipeUpThreshold = -10.0f;
 @end
 
 #endif  // TARGET_OS_IOS
+
