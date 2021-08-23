@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if canImport(Combine) && swift(>=5.0) && canImport(FirebaseStorage)
+#if canImport(Combine) && swift(>=5.0)
 
   import Combine
   import FirebaseStorage
@@ -82,7 +82,7 @@
     /// The publisher will emit events on the **main** thread.
     ///
     /// - Parameters:
-    ///   - size: The maximum size in bytes to download. If the download exceeds this size
+    ///   - size: The maximum size in bytes to download. If the download exceeds this size,
     ///     the task will be cancelled and an error will be returned.
     ///
     /// - Returns: A publisher emitting a `Data` instance. The publisher will emit on the *main* thread.
@@ -268,4 +268,4 @@
     }
   }
 
-#endif // canImport(Combine) && swift(>=5.0) && canImport(FirebaseStorage)
+#endif // canImport(Combine) && swift(>=5.0)
