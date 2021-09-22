@@ -43,6 +43,7 @@
 #import "Crashlytics/Crashlytics/Controllers/FIRCLSAnalyticsManager.h"
 #import "Crashlytics/Crashlytics/Controllers/FIRCLSExistingReportManager.h"
 #import "Crashlytics/Crashlytics/Controllers/FIRCLSManagerData.h"
+#import "Crashlytics/Crashlytics/Controllers/FIRCLSMetricKitManager.h"
 #import "Crashlytics/Crashlytics/Controllers/FIRCLSNotificationManager.h"
 #import "Crashlytics/Crashlytics/DataCollection/FIRCLSDataCollectionArbiter.h"
 #import "Crashlytics/Crashlytics/DataCollection/FIRCLSDataCollectionToken.h"
@@ -137,6 +138,9 @@ typedef NSNumber FIRCLSWrappedReportAction;
 // Internal Managers
 @property(nonatomic, strong) FIRCLSSettingsManager *settingsManager;
 @property(nonatomic, strong) FIRCLSNotificationManager *notificationManager;
+#if CLS_METRICKIT_SUPPORTED
+@property(nonatomic, strong) FIRCLSMetricKitManager *metricKitManager;
+#endif
 
 @end
 
@@ -178,6 +182,16 @@ typedef NSNumber FIRCLSWrappedReportAction;
                                                            googleAppID:self.googleAppID];
 
   _notificationManager = [[FIRCLSNotificationManager alloc] init];
+#if CLS_METRICKIT_SUPPORTED
+  if (@available(iOS 15, *)) {
+    if (self.settings.metricKitCollectionEnabled) {
+      FIRCLSDebugLog(@"MetricKit data collection enabled.");
+      _metricKitManager = [[FIRCLSMetricKitManager alloc] initWithManagerData:managerData
+                                                        existingReportManager:existingReportManager
+                                                                  fileManager:_fileManager];
+    }
+  }
+#endif
 
   _launchMarker = [[FIRCLSLaunchMarkerModel alloc] initWithFileManager:_fileManager];
 
@@ -205,6 +219,25 @@ typedef NSNumber FIRCLSWrappedReportAction;
 
   // Wait for either the processReports callback to be called, or data collection to be enabled.
   return [FBLPromise race:@[ collectionEnabled, _reportActionProvided ]];
+}
+
+/*
+ * This method returns a promise that is resolved once
+ * MetricKit diagnostic reports have been received by `metricKitManager`.
+ */
+- (FBLPromise *)waitForMetricKitData {
+  // If the platform is not iOS or the iOS version is less than 15, immediately resolve the promise
+  // since no MetricKit diagnostics will be available.
+  FBLPromise *promise = [FBLPromise resolvedWith:nil];
+#if CLS_METRICKIT_SUPPORTED
+  if (@available(iOS 15, *)) {
+    if (self.settings.metricKitCollectionEnabled) {
+      promise = [self.metricKitManager waitForMetricKitDataAvailable];
+    }
+  }
+  return promise;
+#endif
+  return promise;
 }
 
 - (FBLPromise<FIRCrashlyticsReport *> *)checkForUnsentReports {
@@ -262,7 +295,15 @@ typedef NSNumber FIRCLSWrappedReportAction;
     report = nil;
   }
 
-  FBLPromise<NSNumber *> *promise = [FBLPromise resolvedWith:@(report != nil)];
+#if CLS_METRICKIT_SUPPORTED
+  if (@available(iOS 15, *)) {
+    if (self.settings.metricKitCollectionEnabled) {
+      [self.metricKitManager registerMetricKitManager];
+    }
+  }
+#endif
+
+  FBLPromise<NSNumber *> *promise;
 
   if ([self.dataArbiter isCrashlyticsCollectionEnabled]) {
     FIRCLSDebugLog(@"Automatic data collection is enabled.");
@@ -271,24 +312,31 @@ typedef NSNumber FIRCLSWrappedReportAction;
 
     [self beginSettingsWithToken:dataCollectionToken];
 
-    [self beginReportUploadsWithToken:dataCollectionToken blockingSend:launchFailure];
+    // Wait for MetricKit data to be available, then continue to send reports and resolve promise.
+    promise = [[self waitForMetricKitData]
+        onQueue:_dispatchQueue
+           then:^id _Nullable(id _Nullable metricKitValue) {
+             [self beginReportUploadsWithToken:dataCollectionToken blockingSend:launchFailure];
 
-    // If data collection is enabled, the SDK will not notify the user
-    // when unsent reports are available, or respect Send / DeleteUnsentReports
-    [_unsentReportsAvailable fulfill:nil];
-
+             // If data collection is enabled, the SDK will not notify the user
+             // when unsent reports are available, or respect Send / DeleteUnsentReports
+             [self->_unsentReportsAvailable fulfill:nil];
+             return @(report != nil);
+           }];
   } else {
     FIRCLSDebugLog(@"Automatic data collection is disabled.");
     FIRCLSDebugLog(@"[Crashlytics:Crash] %d unsent reports are available. Waiting for "
                    @"send/deleteUnsentReports to be called.",
                    self.existingReportManager.unsentReportsCount);
 
-    // Wait for an action to get sent, either from processReports: or automatic data collection.
-    promise = [[self waitForReportAction]
+    // Wait for an action to get sent, either from processReports: or automatic data collection,
+    // and for MetricKit data to be available.
+    promise = [[FBLPromise all:@[ [self waitForReportAction], [self waitForMetricKitData] ]]
         onQueue:_dispatchQueue
-           then:^id _Nullable(FIRCLSWrappedReportAction *_Nullable wrappedAction) {
+           then:^id _Nullable(NSArray *_Nullable wrappedActionAndData) {
              // Process the actions for the reports on disk.
-             FIRCLSReportAction action = [wrappedAction reportActionValue];
+             FIRCLSReportAction action = [[wrappedActionAndData firstObject] reportActionValue];
+
              if (action == FIRCLSReportActionSend) {
                FIRCLSDebugLog(@"Sending unsent reports.");
                FIRCLSDataCollectionToken *dataCollectionToken =

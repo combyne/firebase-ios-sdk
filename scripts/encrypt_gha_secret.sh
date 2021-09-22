@@ -14,11 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# $1 is the file to encrypt
+# $2 is the passphrase
 
-# Point SPM CI to the tip of main of https://github.com/google/GoogleAppMeasurement
-# so that the release process can defer publish the GoogleAppMeasurement tag
-# until after testing.
+# Encrypt the file
+# See https://docs.github.com/en/actions/reference/encrypted-secrets for more details.
+# --batch to prevent interactive command
 
-# For example: Change `.exact("8.3.1")` to `.branch("main")`
-
-sed -i '' 's#exact("[0-9.]*#branch("main#' Package.swift
+file="$1"
+passphrase="$2"
+[ -z "$passphrase" ] || \
+  gpg --batch --passphrase="$passphrase" --symmetric --cipher-algo AES256 $file
