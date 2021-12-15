@@ -24,7 +24,7 @@ jobs:
   package-release:
     # Don't run on private repo.
     if: (github.repository == 'Firebase/firebase-ios-sdk' && github.event_name == 'schedule') || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Xcode 12.2
@@ -47,7 +47,7 @@ jobs:
   build:
     # Don't run on private repo unless it is a PR.
     if: (github.repository == 'Firebase/firebase-ios-sdk' && github.event_name == 'schedule') || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Xcode 12.2
@@ -61,7 +61,7 @@ jobs:
     # Don't run on private repo.
     if: (github.repository == 'Firebase/firebase-ios-sdk' && github.event_name == 'schedule') || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     needs: build
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Xcode 12.2
@@ -90,7 +90,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "ABTesting"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -113,9 +113,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-abtesting.plist.gpg \
         quickstart-ios/abtesting/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       env:
         LEGACY: true
@@ -140,9 +137,12 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK:  "Authentication"
-    runs-on: macOS-latest
+    runs-on: macos-11
     steps:
     - uses: actions/checkout@v2
+      # Facebook SDK 12.0.1 requires Xcode 13
+    - name: Xcode 13.0
+      run: sudo xcode-select -s /Applications/Xcode_13.0.app/Contents/Developer
     - name: Get framework dir
       uses: actions/download-artifact@v1
       with:
@@ -161,9 +161,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-auth.plist.gpg \
         quickstart-ios/authentication/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Swift Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Remove data before upload
@@ -184,7 +181,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "Config"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -202,9 +199,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-config.plist.gpg \
         quickstart-ios/config/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Swift Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Remove data before upload
@@ -225,7 +219,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "Crashlytics"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -255,9 +249,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-crashlytics.plist.gpg \
         quickstart-ios/crashlytics/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       env:
         LEGACY: true
@@ -284,7 +275,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "Database"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -306,9 +297,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-database.plist.gpg \
         quickstart-ios/database/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Remove data before upload
@@ -329,7 +317,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "DynamicLinks"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -354,9 +342,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-dynamiclinks.plist.gpg \
         quickstart-ios/dynamiclinks/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Objc Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Test Swift Quickstart
@@ -379,7 +364,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "Firestore"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -399,9 +384,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-firestore.plist.gpg \
         quickstart-ios/firestore/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Remove data before upload
@@ -422,7 +404,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "InAppMessaging"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -443,9 +425,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-inappmessaging.plist.gpg \
         quickstart-ios/inappmessaging/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Test Swift Quickstart
@@ -468,7 +447,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "Messaging"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -488,9 +467,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-messaging.plist.gpg \
         quickstart-ios/messaging/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Test Swift Quickstart
@@ -513,7 +489,7 @@ jobs:
       signin_secret: ${{ secrets.GHASecretsGPGPassphrase1 }}
       FRAMEWORK_DIR: "Firebase-actions-dir"
       SDK: "Storage"
-    runs-on: macOS-latest
+    runs-on: macOS-10.15
     steps:
     - uses: actions/checkout@v2
     - name: Get framework dir
@@ -535,9 +511,6 @@ jobs:
     - name: Install Secret GoogleService-Info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-storage.plist.gpg \
         quickstart-ios/storage/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-        quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test Quickstart
       run: ([ -z $plist_secret ] || scripts/third_party/travis/retry.sh scripts/test_quickstart_framework.sh "${SDK}")
     - name: Test Swift Quickstart

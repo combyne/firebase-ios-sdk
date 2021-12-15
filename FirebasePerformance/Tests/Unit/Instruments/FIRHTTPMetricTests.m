@@ -93,6 +93,7 @@
 
   FPRRemoteConfigFlags *configFlags =
       [[FPRRemoteConfigFlags alloc] initWithRemoteConfig:(FIRRemoteConfig *)remoteConfig];
+  configFlags.appStartConfigFetchDelayInSeconds = 0.0;
   configurations.remoteConfigFlags = configFlags;
 
   NSData *valueData = [@"false" dataUsingEncoding:NSUTF8StringEncoding];
@@ -102,6 +103,7 @@
 
   // Trigger the RC config fetch
   remoteConfig.lastFetchTime = nil;
+  configFlags.appStartConfigFetchDelayInSeconds = 0.0;
   [configFlags update];
 
   XCTAssertNil([[FIRHTTPMetric alloc] initWithURL:self.sampleURL HTTPMethod:FIRHTTPMethodGET]);

@@ -35,7 +35,10 @@ jobs:
     runs-on: macos-11
     strategy:
       matrix:
-        platform: [iOS, iPad]
+# TODO(#8682): Reenable iPad after fixing Xcode 13 test failures.
+#        platform: [iOS, iPad]
+        platform: [iOS]
+
     steps:
     - uses: actions/checkout@v2
     - name: Setup Bundler
@@ -92,9 +95,6 @@ jobs:
     - name: install secret googleservice-info.plist
       run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/qs-inappmessaging.plist.gpg \
           quickstart-ios/inappmessaging/GoogleService-Info.plist "$plist_secret"
-    - name: Install Secret FIREGSignInInfo.h
-      run: scripts/decrypt_gha_secret.sh scripts/gha-encrypted/FIREGSignInInfo.h.gpg \
-          quickstart-ios/TestUtils/FIREGSignInInfo.h "$signin_secret"
     - name: Test objc quickstart
       run: ([ -z $plist_secret ] ||
             scripts/third_party/travis/retry.sh scripts/test_quickstart.sh InAppMessaging true)
