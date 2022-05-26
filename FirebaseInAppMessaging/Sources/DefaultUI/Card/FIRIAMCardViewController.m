@@ -29,8 +29,7 @@
 @property(weak, nonatomic) IBOutlet UILabel *titleLabel;
 @property(weak, nonatomic) IBOutlet UIButton *primaryActionButton;
 @property(weak, nonatomic) IBOutlet UIButton *secondaryActionButton;
-@property(weak, nonatomic) IBOutlet UITextView *bodyTextView;
-@property(weak, nonatomic) IBOutlet UIScrollView *textAreaScrollView;
+@property (weak, nonatomic) IBOutlet UILabel *bodyLabel;
 
 @end
 
@@ -97,10 +96,7 @@
   [super viewDidLoad];
 
   self.cardView.backgroundColor = self.cardDisplayMessage.displayBackgroundColor;
-  self.cardView.layer.cornerRadius = 4;
-
-  self.bodyTextView.contentInset = UIEdgeInsetsZero;
-  self.bodyTextView.textContainer.lineFragmentPadding = 0;
+  self.cardView.layer.cornerRadius = 16;
 
   // Make the background half transparent.
   [self.view setBackgroundColor:[UIColor.grayColor colorWithAlphaComponent:0.5]];
@@ -108,8 +104,8 @@
   self.titleLabel.text = self.cardDisplayMessage.title;
   self.titleLabel.textColor = self.cardDisplayMessage.textColor;
 
-  self.bodyTextView.text = self.cardDisplayMessage.body;
-  self.bodyTextView.textColor = self.cardDisplayMessage.textColor;
+  self.bodyLabel.text = [self parseBodyString:self.cardDisplayMessage.body];
+  self.bodyLabel.textColor = self.cardDisplayMessage.textColor;
 
   self.imageView.accessibilityLabel = self.inAppMessage.campaignInfo.campaignName;
 
@@ -118,7 +114,8 @@
   [self.primaryActionButton
       setTitleColor:self.cardDisplayMessage.primaryActionButton.buttonTextColor
            forState:UIControlStateNormal];
-
+  [self setupDismissActionOnOverlay];
+    
   if (self.cardDisplayMessage.secondaryActionButton) {
     self.secondaryActionButton.hidden = NO;
     [self.secondaryActionButton setTitle:self.cardDisplayMessage.secondaryActionButton.buttonText
@@ -127,6 +124,20 @@
         setTitleColor:self.cardDisplayMessage.secondaryActionButton.buttonTextColor
              forState:UIControlStateNormal];
   }
+}
+
+- (void)setupDismissActionOnOverlay {
+  self.view.userInteractionEnabled = YES;
+  UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(overlayViewTapped:)];
+  [self.view addGestureRecognizer:tapGesture];
+}
+
+- (IBAction)overlayViewTapped:(UITapGestureRecognizer *)recognizer {
+  [self dismissView:FIRInAppMessagingDismissTypeUserTapClose];
+}
+
+- (NSString *)parseBodyString:(NSString *)bodyString {
+  return [bodyString stringByReplacingOccurrencesOfString:@"\<br\>" withString:@"\n"];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -145,9 +156,6 @@
     self.imageView.image =
         [UIImage imageWithData:self.cardDisplayMessage.portraitImageData.imageRawData];
   }
-
-  self.textAreaScrollView.contentSize = self.bodyTextView.frame.size;
-  [self.textAreaScrollView setContentOffset:CGPointZero];
 }
 
 - (void)viewDidAppear:(BOOL)animated {

@@ -24,14 +24,13 @@
 
 @property(nonatomic, readwrite) FIRInAppMessagingBannerDisplay *bannerDisplayMessage;
 
-@property(weak, nonatomic) IBOutlet NSLayoutConstraint *imageViewWidthConstraint;
 @property(weak, nonatomic) IBOutlet NSLayoutConstraint *imageViewHeightConstraint;
+@property(weak, nonatomic) IBOutlet UIImageView *backgroundShadowImageView;
 
-@property(weak, nonatomic)
-    IBOutlet NSLayoutConstraint *imageBottomAlignWithBodyLabelBottomConstraint;
 @property(weak, nonatomic) IBOutlet UIImageView *imageView;
 @property(weak, nonatomic) IBOutlet UILabel *titleLabel;
 @property(weak, nonatomic) IBOutlet UILabel *bodyLabel;
+@property(weak, nonatomic) IBOutlet UIView *containerView;
 
 // Banner view will be rendered and dismissed with animation. Within viewDidLayoutSubviews function,
 // we would position the view so that it's out of UIWindow range on the top so that later on it can
@@ -45,18 +44,14 @@
 @end
 
 // The image display area dimension in points
-static const CGFloat kBannerViewImageWidth = 60;
-static const CGFloat kBannerViewImageHeight = 60;
+static const CGFloat kBannerViewImageWidth = 64;
+static const CGFloat kBannerViewImageHeight = 64;
 
 static const NSTimeInterval kBannerViewAnimationDuration = 0.3;  // in seconds
 
 // Banner view will auto dismiss after this amount of time of showing if user does not take
 // any other actions. It's in seconds.
 static const NSTimeInterval kBannerAutoDismissTime = 12;
-
-// If the window width is larger than this threshold, we cap banner view width
-// by it: showing a non full-width banner when it happens.
-static const CGFloat kBannerViewMaxWidth = 736;
 
 static const CGFloat kSwipeUpThreshold = -10.0f;
 
@@ -135,30 +130,30 @@ static const CGFloat kSwipeUpThreshold = -10.0f;
       // reduce height or width of the image view to retain the ratio of the image
       if (image.size.width > image.size.height) {
         CGFloat newImageHeight = kBannerViewImageWidth * image.size.height / image.size.width;
-        self.imageViewHeightConstraint.constant = newImageHeight;
+        self.imageViewHeightConstraint.constant = kBannerViewImageWidth;
       } else {
         CGFloat newImageWidth = kBannerViewImageHeight * image.size.width / image.size.height;
-        self.imageViewWidthConstraint.constant = newImageWidth;
       }
     }
     self.imageView.image = image;
     self.imageView.accessibilityLabel = self.inAppMessage.campaignInfo.campaignName;
+    self.imageView.hidden = NO;
   } else {
     // Hide image and remove the bottom constraint between body label and image view.
-    self.imageViewWidthConstraint.constant = 0;
-    self.imageBottomAlignWithBodyLabelBottomConstraint.active = NO;
+    self.imageView.hidden = YES;
   }
 
   // Set some rendering effects based on settings.
-  self.view.backgroundColor = self.bannerDisplayMessage.displayBackgroundColor;
+  self.containerView.backgroundColor = self.bannerDisplayMessage.displayBackgroundColor;
   self.titleLabel.textColor = self.bannerDisplayMessage.textColor;
   self.bodyLabel.textColor = self.bannerDisplayMessage.textColor;
 
   self.view.layer.masksToBounds = NO;
-  self.view.layer.shadowOffset = CGSizeMake(2, 1);
-  self.view.layer.shadowRadius = 2;
-  self.view.layer.shadowOpacity = 0.4;
-
+  self.view.layer.shadowColor = [UIColor blackColor].CGColor;
+  self.view.layer.shadowOffset = CGSizeMake(0, 2);
+  self.view.layer.shadowRadius = 5;
+  self.view.layer.shadowOpacity = 0.1;
+    
   // Calculate status bar height.
   CGFloat statusBarHeight = 0;
 #if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
@@ -173,11 +168,6 @@ static const CGFloat kSwipeUpThreshold = -10.0f;
 #if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
   }
 #endif
-
-  // Pin title label below status bar with cushion.
-  [[self.titleLabel.topAnchor constraintEqualToAnchor:self.view.topAnchor
-                                             constant:statusBarHeight + 3] setActive:YES];
-
   // When created, we are hiding it for later animation
   self.hidingForAnimation = YES;
   [self setupAutoDismissTimer];
@@ -227,49 +217,24 @@ static const CGFloat kSwipeUpThreshold = -10.0f;
   }];
 }
 
-- (void)adjustBodyLabelViewHeight {
-  // These lines make sure that we only change the height of the label view
-  // to fit the content. Doing [self.bodyLabel sizeToFit] only could potentially
-  // change the width as well.
-  CGRect theFrame = self.bodyLabel.frame;
-  [self.bodyLabel sizeToFit];
-  theFrame.size.height = self.bodyLabel.frame.size.height;
-  self.bodyLabel.frame = theFrame;
-}
-
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
 
-  CGFloat bannerViewHeight = 0;
-
-  [self adjustBodyLabelViewHeight];
-
-  if (self.bannerDisplayMessage.imageData) {
-    CGFloat imageBottom = CGRectGetMaxY(self.imageView.frame);
-    CGFloat bodyBottom = CGRectGetMaxY(self.bodyLabel.frame);
-    bannerViewHeight = MAX(imageBottom, bodyBottom);
-  } else {
-    bannerViewHeight = CGRectGetMaxY(self.bodyLabel.frame);
-  }
-
-  bannerViewHeight += 5;  // Add some padding margin on the bottom of the view
+  CGFloat bannerViewHeight = self.backgroundShadowImageView.frame.size.height;
 
   CGFloat appWindowWidth = [self.view.window bounds].size.width;
   CGFloat bannerViewWidth = appWindowWidth;
 
-  if (bannerViewWidth > kBannerViewMaxWidth) {
-    bannerViewWidth = kBannerViewMaxWidth;
-    self.view.layer.cornerRadius = 4;
-  }
-
   CGRect viewRect =
-      CGRectMake((appWindowWidth - bannerViewWidth) / 2, 0, bannerViewWidth, bannerViewHeight);
+      CGRectMake(0, 0, bannerViewWidth, bannerViewHeight);
   self.view.frame = viewRect;
 
   if (self.hidingForAnimation) {
     // Move the banner to be just above the top of the window to hide it.
     self.view.center = CGPointMake(appWindowWidth / 2, -viewRect.size.height / 2);
   }
+    
+    self.containerView.layer.cornerRadius = 10;
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -327,3 +292,4 @@ static const CGFloat kSwipeUpThreshold = -10.0f;
 @end
 
 #endif  // TARGET_OS_IOS
+
