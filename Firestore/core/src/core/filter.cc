@@ -18,6 +18,9 @@
 
 #include <ostream>
 
+#include "Firestore/core/src/core/field_filter.h"
+#include "Firestore/core/src/util/thread_safe_memoizer.h"
+
 namespace firebase {
 namespace firestore {
 namespace core {

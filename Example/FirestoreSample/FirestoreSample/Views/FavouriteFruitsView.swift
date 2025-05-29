@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import FirebaseFirestore
 import SwiftUI
-import FirebaseFirestoreSwift
 
 private struct Fruit: Codable, Identifiable, Equatable {
   @DocumentID var id: String?
@@ -21,6 +21,7 @@ private struct Fruit: Codable, Identifiable, Equatable {
   var isFavourite: Bool
 }
 
+/// This view demonstrates how to use the `FirestoreQuery` property wrapper.
 struct FavouriteFruitsView: View {
   @FirestoreQuery(
     collectionPath: "fruits",

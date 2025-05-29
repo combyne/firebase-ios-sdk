@@ -122,15 +122,17 @@ To develop Firebase software, **install**:
 * [Xcode] (v12.2 or later) (for Googlers, visit [go/xcode](go/xcode)) to
   download.
 * <details>
-  <summary>Code styling tools: <b>clang-format</b> & <b>mint</b></summary>
+  <summary>Code styling tools: <b>clang-format</b>, <b>swiftformat</b> and
+   <b>mint</b></summary>
 
    <!-- The above line is intentionally left blank. -->
-   Firebase use's a style script that requires [clang-format] and [mint].
+   Firebase use's a style script that requires [clang-format] and [mint]. [mint]
+   installs [swiftformat] for Swift styling.
 
    To install [clang-format] and [mint] using [Homebrew]:
 
     ```console
-    brew install clang-format@13
+    brew install clang-format@20
     brew install mint
     ```
 
@@ -180,12 +182,12 @@ To learn more about running tests with Swift Package Manager, visit the
 [Testing](#testing) section.
 
 <!-- SwiftPM troubleshooting -->
-<!-- TODO: Common issues and fixes like resolve depencies & reset cache. -->
+<!-- TODO: Common issues and fixes like resolve dependencies & reset cache. -->
 
 #### **[CocoaPods]**
 
 [CocoaPods] is another popular dependency manager used in Apple development.
-Firebase supports development with CocoaPods 1.10.0 (or later). If you choose to
+Firebase supports development with CocoaPods 1.12.0 (or later). If you choose to
 develop using CocoaPods, it's recommend to use
 [`cocoapods-generate`][cocoapods-generate], a plugin that generates a
 [workspace] from a [podspec]. This plugin allows you to quickly generate a
@@ -250,7 +252,8 @@ the project.
 
 #### **Style Guide**
 
-This code in this repo is styled in accordance to `clang-format` conventions.
+This code in this repo is styled in accordance to `swiftformat` and
+`clang-format` conventions.
 
 #### Styling your code
 
@@ -271,7 +274,7 @@ Alternatively, the script can be work on branch names or filenames.
 ```
 
 ```console
-./scripts/style.sh FirebaseStorage/Sources/FIRStorage.m
+./scripts/style.sh FirebaseStorage/Sources/Storage.swift
 ```
 
 <details>
@@ -313,7 +316,7 @@ Refer to the following resources when writing Swift or Objective-C code.
 
 This is a general overview of what the Git workflow may look like, from start to
 finish, when contributing code to Firebase.
-The below snippet is purely for reference purposes and is used to demonstarate
+The below snippet is purely for reference purposes and is used to demonstrate
 what the workflow may look like, from start to finish.
 <details>
 <summary>View the workflow</summary>
@@ -323,8 +326,8 @@ For developers without write access, you'll need to create a fork of Firebase
 instead of a branch. Learn more about forking a repo [here][github-forks].
 
 ```console
-# Update your local master
-git checkout master
+# Update your local main
+git checkout main
 git pull
 
 # Create a development branch
@@ -358,7 +361,7 @@ viewing the [documentation][xcode-debugging].
 ### Testing
 
 Tests are an essential part to building Firebase. Many of the tests
-for Firebase run as part of our continous integration (CI) setup with
+for Firebase run as part of our continuous integration (CI) setup with
 [GitHub Actions].
 
 * _Fixing a bug?_ Add a test to catch potential regressions in
@@ -422,7 +425,7 @@ following criteria:
 2. The committed code has been styled in accordance with this repo's style
    guidelines.
 3. A CHANGELOG has been updated to reflect the PR's associated changes.
-4. Unit and/or integration tests have been added or updatd to test and
+4. Unit and/or integration tests have been added or updatde to test and
    validate the contribution's changes.
 5. Refer to the
    [Contributor License Agreement](#contributor-license-agreement) section below

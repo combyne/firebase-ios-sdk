@@ -19,7 +19,7 @@
 
   @available(swift 5.0)
   @available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, *)
-  extension HTTPSCallable {
+  public extension HTTPSCallable {
     // MARK: - HTTPS Callable Functions
 
     /// Executes this Callable HTTPS trigger asynchronously without any parameters.
@@ -27,21 +27,24 @@
     /// The publisher will emit on the **main** thread.
     ///
     /// The request to the Cloud Functions backend made by this method automatically includes a
-    /// Firebase Instance ID token to identify the app instance. If a user is logged in with Firebase
+    /// Firebase Instance ID token to identify the app instance. If a user is logged in with
+    /// Firebase
     /// Auth, an auth ID token for the user is also automatically included.
     ///
-    /// Firebase Installations ID sends data to the Firebase backend periodically to collect information
+    /// Firebase Installations ID sends data to the Firebase backend periodically to collect
+    /// information
     /// regarding the app instance. To stop this, see `[FIRInstallations delete]`. It
     /// resumes with a new Instance ID the next time you call this method.
     ///
-    /// - Returns: A publisher emitting a `HTTPSCallableResult` instance. The publisher will emit on the *main* thread.
+    /// - Returns: A publisher emitting a `HTTPSCallableResult` instance. The publisher will emit on
+    /// the *main* thread.
     @discardableResult
-    public func call() -> Future<HTTPSCallableResult, Error> {
+    func call() -> Future<HTTPSCallableResult, Error> {
       Future<HTTPSCallableResult, Error> { promise in
         self.call { callableResult, error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
-          } else if let callableResult = callableResult {
+          } else if let callableResult {
             promise(.success(callableResult))
           }
         }
@@ -60,7 +63,8 @@
     /// - `Dictionary<String, Any>`, where the contained objects are also one of these types.
     ///
     /// The request to the Cloud Functions backend made by this method automatically includes a
-    /// Firebase Instance ID token to identify the app instance. If a user is logged in with Firebase
+    /// Firebase Instance ID token to identify the app instance. If a user is logged in with
+    /// Firebase
     /// Auth, an auth ID token for the user is also automatically included.
     ///
     /// Firebase Instance ID sends data to the Firebase backend periodically to collect information
@@ -68,14 +72,15 @@
     /// resumes with a new Instance ID the next time you call this method.
     ///
     /// - Parameter data: The data passed into the Callable Function.
-    /// - Returns: A publisher emitting a `HTTPSCallableResult` instance. The publisher will emit on the *main* thread.
+    /// - Returns: A publisher emitting a `HTTPSCallableResult` instance. The publisher will emit on
+    /// the *main* thread.
     @discardableResult
-    public func call(_ data: Any?) -> Future<HTTPSCallableResult, Error> {
+    func call(_ data: Any?) -> Future<HTTPSCallableResult, Error> {
       Future<HTTPSCallableResult, Error> { promise in
         self.call(data) { callableResult, error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
-          } else if let callableResult = callableResult {
+          } else if let callableResult {
             promise(.success(callableResult))
           }
         }

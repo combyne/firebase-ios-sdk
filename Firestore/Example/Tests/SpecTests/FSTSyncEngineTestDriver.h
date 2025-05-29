@@ -123,6 +123,7 @@ typedef std::
  * mutation queues).
  */
 - (instancetype)initWithPersistence:(std::unique_ptr<local::Persistence>)persistence
+                            eagerGC:(BOOL)eagerGC
                         initialUser:(const credentials::User &)initialUser
                   outstandingWrites:(const FSTOutstandingWriteQueues &)outstandingWrites
       maxConcurrentLimboResolutions:(size_t)maxConcurrentLimboResolutions NS_DESIGNATED_INITIALIZER;
@@ -145,9 +146,10 @@ typedef std::
  * Resulting events are captured and made available via the capturedEventsSinceLastCall method.
  *
  * @param query A valid query to execute against the backend.
+ * @param options A listen option to configure snapshot listener.
  * @return The target ID assigned by the system to track the query.
  */
-- (model::TargetId)addUserListenerWithQuery:(core::Query)query;
+- (model::TargetId)addUserListenerWithQuery:(core::Query)query options:(core::ListenOptions)options;
 
 /**
  * Removes a listener from the FSTSyncEngine as if the user had removed a listener corresponding
@@ -265,6 +267,11 @@ typedef std::
  * Runs a pending timer callback on the worker queue.
  */
 - (void)runTimer:(firebase::firestore::util::TimerId)timerID;
+
+/**
+ * Triggers a LRU GC run with given cache threshold.
+ */
+- (void)triggerLruGC:(NSNumber *)threshold;
 
 /**
  * Switches the FSTSyncEngine to a new user. The test driver tracks the outstanding mutations for

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 // This file contains declarations that should go into FirebaseCore when
-// Firebase InAppMessagingDisplay is merged into master. Keep them separate now to help
+// Firebase InAppMessagingDisplay is merged into main. Keep them separate now to help
 // with build from development folder and avoid merge conflicts.
 
 extern FIRLoggerService kFIRLoggerInAppMessagingDisplay;

@@ -22,16 +22,30 @@
 # Pass a specific file or directory name to format just files found there
 #
 # Commonly
-# ./scripts/style.sh master
+# ./scripts/style.sh main
+
+# Set the environment variable FIR_CLANG_FORMAT_PATH to use a specific version
+# of clang-format, regardless of its order in the shell PATH.
+#
+# Example (add to ~/.bash_profile, ~/.zshrc or run in interactive shell):
+#   FIR_CLANG_FORMAT_PATH="$(brew --prefix clang-format)/bin/clang-format"
+#   export FIR_CLANG_FORMAT_PATH
+if [[ -n "$FIR_CLANG_FORMAT_PATH" ]]; then
+  clang_format_bin="$FIR_CLANG_FORMAT_PATH"
+elif ! clang_format_bin=$(command -v clang-format); then
+  echo "clang-format not found, install with 'brew install clang-format'"
+  exit 1
+fi
 
 # Strip the clang-format version output down to the major version. Examples:
 #   clang-format version 7.0.0 (tags/google/stable/2018-01-11)
 #   clang-format version google3-trunk (trunk r333779)
-version=$(clang-format --version)
+version=$("$clang_format_bin" --version)
 
 # Log the version in non-interactive use as it can be useful in travis logs.
 if [[ ! -t 1 ]]; then
-  echo "Found: $version"
+  echo "Clang-format Path: $clang_format_bin"
+  echo "Clang-format Version: $version"
 fi
 
 # Remove leading "clang-format version"
@@ -42,7 +56,7 @@ version="${version/ (*)/}"
 version="${version/.*/}"
 
 case "$version" in
-  13)
+  20)
     ;;
   google3-trunk)
     echo "Please use a publicly released clang-format; a recent LLVM release"
@@ -51,17 +65,21 @@ case "$version" in
     exit 1
     ;;
   *)
-    echo "Please upgrade to clang-format version 12."
+    echo "Please upgrade to clang-format version 20."
     echo "If it's installed via homebrew you can run:"
     echo "brew upgrade clang-format"
     exit 1
     ;;
 esac
-
 # Ensure that tools in `Mintfile` are installed locally to avoid permissions
 # problems that would otherwise arise from the default of installing in
 # /usr/local.
 export MINT_PATH=Mint
+
+if ! which mint >/dev/null 2>&1; then
+  echo "mint is not available, install with 'brew install mint'"
+  exit 1
+fi
 
 system=$(uname -s)
 
@@ -74,28 +92,10 @@ function join() {
 
 clang_options=(-style=file)
 
-# Rules to disable in swiftformat:
-swift_disable=(
-  # sortedImports is broken, sorting into the middle of the copyright notice.
-  sortedImports
-
-  # Too many of our swift files have simplistic examples. While technically
-  # it's correct to remove the unused argument labels, it makes our examples
-  # look wrong.
-  unusedArguments
-
-  # We prefer trailing braces.
-  wrapMultilineStatementBraces
-)
-
-swift_options=(
-  # Mimic Objective-C style.
-  --indent 2
-  --maxwidth 100
-  --wrapparameters afterfirst
-
-  --disable $(join , "${swift_disable[@]}")
-)
+# Swift formatting options for the repo should be configured in
+# https://github.com/firebase/firebase-ios-sdk/blob/main/.swiftformat.
+# These may be overridden with additional `.swiftformat` files in subdirectories.
+swift_options=()
 
 if [[ $# -gt 0 && "$1" == "test-only" ]]; then
   test_only=true
@@ -152,14 +152,17 @@ s%^./%%
 # Generated source
 \%/Firestore/core/src/util/config.h% d
 
+# Generated Code for Data Connect sample
+\%/Examples/FriendlyFlix/app/FriendlyFlixSDK/% d
+
 # Sources pulled in by travis bundler, with and without a leading slash
 \%^/?vendor/bundle/% d
 
 # Sources pulled in by the Mint package manager
-\%^Mint% d
+\%^mint% d
 
-# Auth Sample is not subject to formatting
-\%^(FirebaseAuth/Tests/Sample)/% d
+# Auth Sample Objective-C does not format well
+\%^(FirebaseAuth/Tests/Sample/Sample)/% d
 
 # Keep Firebase.h indenting
 \%^CoreOnly/Sources/Firebase.h% d
@@ -177,16 +180,12 @@ s%^./%%
 needs_formatting=false
 for f in $files; do
   if [[ "${f: -6}" == '.swift' ]]; then
-    if [[ "$system" == 'Darwin' ]]; then
-      # Match output that says:
-      # 1/1 files would have been formatted.  (with --dryrun)
-      # 1/1 files formatted.                  (without --dryrun)
-      mint run swiftformat "${swift_options[@]}" "$f" 2>&1 | grep '^1/1 files' > /dev/null
-    else
-      false
-    fi
+    # Match output that says:
+    # 1/1 files would have been formatted.  (with --dryrun)
+    # 1/1 files formatted.                  (without --dryrun)
+    mint run swiftformat "${swift_options[@]}" "$f" 2>&1 | grep '^1/1 files' > /dev/null
   else
-    clang-format "${clang_options[@]}" "$f" | grep "<replacement " > /dev/null
+    "$clang_format_bin" "${clang_options[@]}" "$f" | grep "<replacement " > /dev/null
   fi
 
   if [[ "$test_only" == true && $? -ne 1 ]]; then

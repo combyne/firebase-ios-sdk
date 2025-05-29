@@ -1,16 +1,17 @@
-FirebaseAuth/Tests/Sample/Sample/Application.plist
-FirebaseAuth/Tests/Sample/Sample/AuthCredentials.h
-FirebaseAuth/Tests/Sample/Sample/GoogleService-Info_multi.plist
-FirebaseAuth/Tests/Sample/Sample/GoogleService-Info.plist
-FirebaseAuth/Tests/Sample/Sample/Sample.entitlements
-FirebaseAuth/Tests/Sample/ApiTests/AuthCredentials.h
-FirebaseAuth/Tests/Sample/SwiftApiTests/Credentials.swift
+FirebaseAuth/Tests/SampleSwift/AuthenticationExample/SwiftApplication.plist
+FirebaseAuth/Tests/SampleSwift/ObjCApiTests/AuthCredentials.h
+FirebaseAuth/Tests/SampleSwift/GoogleService-Info_multi.plist
+FirebaseAuth/Tests/SampleSwift/GoogleService-Info.plist
+FirebaseAuth/Tests/SampleSwift/Sample.entitlements
+FirebaseAuth/Tests/SampleSwift/SwiftApiTests/Credentials.swift
 
 FirebaseDatabase/Tests/Resources/GoogleService-Info.plist
 
-FirebaseRemoteConfig/Tests/SwiftAPI/Resources/GoogleService-Info.plist
-FirebaseRemoteConfig/Tests/Sample/RemoteConfigSampleApp/GoogleService-Info.plist
-FirebaseRemoteConfig/Tests/Sample/RemoteConfigSampleApp/SecondApp-GoogleService-Info.plist
+FirebaseRemoteConfig/Tests/Sample/GoogleService-Info.plist
+FirebaseRemoteConfigSwift/Apps/SwiftUISample/SwiftUISample/GoogleService-Info.plist
+
+# Firebase Sessions test app and integration tests GoogleService-Info.plist
+FirebaseSessions/**/GoogleService-Info.plist
 
 # FirebaseStorage integration tests GoogleService-Info.plist
 FirebaseStorage/Tests/Integration/Resources/GoogleService-Info.plist
@@ -24,14 +25,11 @@ FirebaseMessaging/Tests/IntegrationTests/Resources/GoogleService-Info.plist
 FirebaseMessaging/Apps/Shared/GoogleService-Info.plist
 FirebaseMessaging/Apps/AdvancedSample/SampleWatchWatchKitExtension/GoogleService-Info.plist
 FirebaseMessaging/Apps/AdvancedSample/AppClips/GoogleService-Info.plist
+FirebaseMessaging/Apps/SampleStandaloneWatchApp/SampleStandaloneWatchAppWatchApp/GoogleService-Info.plist
 
 # Credentials for Firebase Storage Integration Tests
-FirebaseStorage/Tests/Integration/Credentials.h
-FirebaseStorage/Tests/SwiftIntegration/Credentials.swift
-FirebaseStorageSwift/Tests/Integration/Credentials.swift
-
-# FirebaseSegmentation integration tests GoogleService-Info.plist
-FirebaseSegmentation/Tests/Sample/GoogleService-Info.plist
+FirebaseStorage/Tests/ObjCIntegration/Credentials.h
+FirebaseStorage/Tests/Integration/Credentials.swift
 
 # FirebaseMLModelDownloader integration tests GoogleService-Info.plist
 FirebaseMLModelDownloader/Tests/Integration/Resources/GoogleService-Info.plist
@@ -65,7 +63,7 @@ DerivedData
 
 # Swift Package Manager
 Package.resolved
-*/.build
+**/.build
 ReleaseTooling/.swiftpm
 ReleaseTooling/Packages
 ReleaseTooling/*.xcodeproj
@@ -156,3 +154,13 @@ FirebaseAppCheck/Apps/AppCheckCustomProvideApp/AppCheckCustomProvideApp/GoogleSe
 /Example/FirestoreSample/FirestoreSample/GoogleService-Info.plist
 /Example/FirestoreSample/ui-debug.log
 /Example/FirestoreSample/firestore-debug.log
+/Example/FirestoreSample/firebase-debug.log
+
+# generated Terraform docs
+.terraform/*
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+
+# FirebaseVertexAI test data
+vertexai-sdk-test-data

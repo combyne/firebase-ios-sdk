@@ -16,6 +16,7 @@
 #import "FirebasePerformance/Sources/Instrumentation/Network/FPRNSURLConnectionInstrument_Private.h"
 
 #import "FirebasePerformance/Sources/Common/FPRDiagnostics.h"
+#import "FirebasePerformance/Sources/ISASwizzler/FPRObjectSwizzler.h"
 #import "FirebasePerformance/Sources/Instrumentation/FPRClassInstrumentor.h"
 #import "FirebasePerformance/Sources/Instrumentation/FPRInstrument_Private.h"
 #import "FirebasePerformance/Sources/Instrumentation/FPRNetworkTrace.h"
@@ -23,8 +24,6 @@
 #import "FirebasePerformance/Sources/Instrumentation/FPRSelectorInstrumentor.h"
 #import "FirebasePerformance/Sources/Instrumentation/Network/Delegates/FPRNSURLConnectionDelegate.h"
 #import "FirebasePerformance/Sources/Instrumentation/Network/FPRNetworkInstrumentHelpers.h"
-
-#import <GoogleUtilities/GULObjectSwizzler.h>
 
 #import "FirebasePerformance/Sources/Configurations/FPRConfigurations.h"
 
@@ -35,7 +34,7 @@ typedef void (^FPRNSURLConnectionCompletionHandler)(NSURLResponse *_Nullable res
                                                     NSError *_Nullable connectionError);
 
 /** Returns the dispatch queue for all instrumentation to occur on. */
-static dispatch_queue_t GetInstrumentationQueue() {
+static dispatch_queue_t GetInstrumentationQueue(void) {
   static dispatch_queue_t queue = nil;
   static dispatch_once_t token = 0;
   dispatch_once(&token, ^{
@@ -97,14 +96,14 @@ void InstrumentInitWithRequestDelegate(FPRClassInstrumentor *instrumentor,
     if (delegate) {
       [delegateInstrument registerClass:[delegate class]];
       [delegateInstrument registerObject:delegate];
-      [GULObjectSwizzler setAssociatedObject:connection
-                                         key:kFPRDelegateKey
+      [FPRObjectSwizzler setAssociatedObject:connection
+                                         key:(__bridge const void *_Nonnull)kFPRDelegateKey
                                        value:delegate
                                  association:GUL_ASSOCIATION_ASSIGN];
     } else {
       delegate = [[FPRNSURLConnectionDelegate alloc] init];
-      [GULObjectSwizzler setAssociatedObject:connection
-                                         key:kFPRDelegateKey
+      [FPRObjectSwizzler setAssociatedObject:connection
+                                         key:(__bridge const void *_Nonnull)kFPRDelegateKey
                                        value:delegate
                                  association:GUL_ASSOCIATION_ASSIGN];
     }
@@ -132,14 +131,14 @@ void InstrumentInitWithRequestDelegateStartImmediately(
       [delegateInstrument registerClass:[delegate class]];
       [delegateInstrument registerObject:delegate];
 
-      [GULObjectSwizzler setAssociatedObject:connection
-                                         key:kFPRDelegateKey
+      [FPRObjectSwizzler setAssociatedObject:connection
+                                         key:(__bridge const void *_Nonnull)kFPRDelegateKey
                                        value:delegate
                                  association:GUL_ASSOCIATION_ASSIGN];
     } else {
       delegate = [[FPRNSURLConnectionDelegate alloc] init];
-      [GULObjectSwizzler setAssociatedObject:connection
-                                         key:kFPRDelegateKey
+      [FPRObjectSwizzler setAssociatedObject:connection
+                                         key:(__bridge const void *_Nonnull)kFPRDelegateKey
                                        value:delegate
                                  association:GUL_ASSOCIATION_ASSIGN];
     }
@@ -161,7 +160,8 @@ void InstrumentConnectionStart(FPRClassInstrumentor *instrumentor) {
   [selectorInstrumentor setReplacingBlock:^(id object) {
     typedef void (*OriginalImp)(id, SEL);
     NSURLConnection *connection = (NSURLConnection *)object;
-    if ([GULObjectSwizzler getAssociatedObject:connection key:kFPRDelegateKey]) {
+    if ([FPRObjectSwizzler getAssociatedObject:connection
+                                           key:(__bridge const void *_Nonnull)kFPRDelegateKey]) {
       FPRNetworkTrace *trace =
           [[FPRNetworkTrace alloc] initWithURLRequest:connection.originalRequest];
       [trace start];

@@ -14,7 +14,10 @@
 
 #import <XCTest/XCTest.h>
 
+#import <GoogleUtilities/GULUserDefaults.h>
+
 #import "FirebasePerformance/Sources/AppActivity/FPRAppActivityTracker.h"
+#import "FirebasePerformance/Sources/AppActivity/FPRSessionManager.h"
 #import "FirebasePerformance/Sources/Common/FPRConstants.h"
 #import "FirebasePerformance/Sources/Configurations/FPRConfigurations+Private.h"
 #import "FirebasePerformance/Sources/Configurations/FPRConfigurations.h"
@@ -98,7 +101,7 @@
       [[FPRRemoteConfigFlags alloc] initWithRemoteConfig:(FIRRemoteConfig *)remoteConfig];
   configurations.remoteConfigFlags = configFlags;
 
-  NSUserDefaults *userDefaults = [[NSUserDefaults alloc] init];
+  GULUserDefaults *userDefaults = [[GULUserDefaults alloc] init];
   configFlags.userDefaults = userDefaults;
 
   NSString *configKey = [NSString stringWithFormat:@"%@.%@", kFPRConfigPrefix, @"fpr_enabled"];
@@ -236,7 +239,7 @@
   XCTAssertNil([trace.counters objectForKey:@"testing"]);
 }
 
-/** Validates that calling get on a metric returns 0 if it hasnt been reviously set. */
+/** Validates that calling get on a metric returns 0 if it hasn't been reviously set. */
 - (void)testGetMetricWhenSetHasntBeenCalledReturnsZero {
   FIRTrace *trace = [[FIRTrace alloc] initWithName:@"Random"];
   int64_t metricValue = [trace valueForIntMetric:@"testing"];
@@ -424,15 +427,28 @@
 
 /** Validates the value of background state when the app is backgrounded. */
 - (void)testValidTraceWithBackgrounding {
+  XCTestExpectation *expectation = [self expectationWithDescription:@"Application state change"];
   NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
   FIRTrace *trace = [[FIRTrace alloc] initWithName:@"Random"];
   [trace start];
-  [defaultCenter postNotificationName:UIApplicationDidEnterBackgroundNotification
-                               object:[UIApplication sharedApplication]];
-  [defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification
-                               object:[UIApplication sharedApplication]];
-  XCTAssertEqual(trace.backgroundTraceState, FPRTraceStateBackgroundAndForeground);
-  [trace stop];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [defaultCenter postNotificationName:UIApplicationDidEnterBackgroundNotification
+                                 object:[UIApplication sharedApplication]];
+    [defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification
+                                 object:[UIApplication sharedApplication]];
+    [expectation fulfill];
+  });
+
+  [self waitForExpectationsWithTimeout:5.0
+                               handler:^(NSError *_Nullable error) {
+                                 if (error) {
+                                   XCTFail(@"Expectation failed with error: %@", error);
+                                 } else {
+                                   XCTAssertEqual(trace.backgroundTraceState,
+                                                  FPRTraceStateBackgroundAndForeground);
+                                   [trace stop];
+                                 }
+                               }];
 }
 
 /** Validates the value of background state when trace is not started. */
@@ -449,15 +465,29 @@
 
 /** Validates the value of background state is available after trace is stopped. */
 - (void)testBackgroundStateAfterTraceStop {
+  XCTestExpectation *expectation = [self expectationWithDescription:@"Application state change"];
+
   NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
   FIRTrace *trace = [[FIRTrace alloc] initWithName:@"Random"];
   [trace start];
-  [defaultCenter postNotificationName:UIApplicationDidEnterBackgroundNotification
-                               object:[UIApplication sharedApplication]];
-  [defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification
-                               object:[UIApplication sharedApplication]];
-  [trace stop];
-  XCTAssertEqual(trace.backgroundTraceState, FPRTraceStateBackgroundAndForeground);
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [defaultCenter postNotificationName:UIApplicationDidEnterBackgroundNotification
+                                 object:[UIApplication sharedApplication]];
+    [defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification
+                                 object:[UIApplication sharedApplication]];
+    [expectation fulfill];
+  });
+
+  [self waitForExpectationsWithTimeout:5.0
+                               handler:^(NSError *_Nullable error) {
+                                 if (error) {
+                                   XCTFail(@"Expectation failed with error: %@", error);
+                                 } else {
+                                   [trace stop];
+                                   XCTAssertEqual(trace.backgroundTraceState,
+                                                  FPRTraceStateBackgroundAndForeground);
+                                 }
+                               }];
 }
 
 /** Validates that stages do not have any valid background state. */
@@ -722,13 +752,9 @@
 
 /** Validates if every trace contains a session Id. */
 - (void)testSessionId {
+  [[FPRSessionManager sharedInstance] updateSessionId:@"testSessionId"];
   FIRTrace *trace = [[FIRTrace alloc] initWithName:@"Random"];
   [trace start];
-
-  NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
-  [defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification
-                               object:[UIApplication sharedApplication]];
-
   [trace stop];
   XCTAssertNotNil(trace.sessions);
   XCTAssertTrue(trace.sessions.count > 0);
@@ -736,18 +762,11 @@
 
 /** Validates if every trace contains multiple session Ids on changing app state. */
 - (void)testMultipleSessionIds {
+  [[FPRSessionManager sharedInstance] updateSessionId:@"testSessionId"];
   FIRTrace *trace = [[FIRTrace alloc] initWithName:@"Random"];
   [trace start];
-  NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
-  [defaultCenter postNotificationName:UIWindowDidBecomeVisibleNotification
-                               object:[UIApplication sharedApplication]];
-  [defaultCenter postNotificationName:UIApplicationDidBecomeActiveNotification
-                               object:[UIApplication sharedApplication]];
-  [defaultCenter postNotificationName:UIApplicationWillEnterForegroundNotification
-                               object:[UIApplication sharedApplication]];
-
-  [defaultCenter postNotificationName:UIApplicationWillEnterForegroundNotification
-                               object:[UIApplication sharedApplication]];
+  [[FPRSessionManager sharedInstance] updateSessionId:@"testSessionId2"];
+  [[FPRSessionManager sharedInstance] updateSessionId:@"testSessionId3"];
 
   XCTestExpectation *expectation = [self expectationWithDescription:@"Expectation - Wait for 2s"];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),

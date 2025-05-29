@@ -20,7 +20,7 @@
 
 #import "FirebaseDatabase/Sources/Login/FIRDatabaseConnectionContextProvider.h"
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "SharedTestUtilities/AppCheckFake/FIRAppCheckFake.h"
 #import "SharedTestUtilities/AppCheckFake/FIRAppCheckTokenResultFake.h"
 #import "SharedTestUtilities/FIRAuthInteropFake.h"
@@ -97,7 +97,7 @@
                       [completionExpectation fulfill];
                     }];
 
-  [self waitForExpectations:@[ completionExpectation ] timeout:0.5];
+  [self waitForExpectations:@[ completionExpectation ] timeout:2.0];
 }
 
 - (void)testFetchContextWithAuthNoAppCheckSuccess {

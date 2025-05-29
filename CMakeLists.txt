@@ -60,6 +60,22 @@ endif()
 enable_language(C)
 enable_language(CXX)
 
+set(
+  FIREBASE_LD_EXECUTABLE
+  ""
+  CACHE
+  STRING
+  "The filename of the C/C++ linker to use. \
+    For example, the default linker for clang and gcc is ld. \
+    Using a fast linker, like mold (https://github.com/rui314/mold), \
+    could be useful during development to reduce build/test cycle times."
+)
+
+if(NOT ("${FIREBASE_LD_EXECUTABLE}" STREQUAL ""))
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=${FIREBASE_LD_EXECUTABLE}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=${FIREBASE_LD_EXECUTABLE}")
+endif()
+
 option(
   FIREBASE_IOS_BUILD_BENCHMARKS
   "Enable building of C++ and Objective-C benchmarks for this project"
@@ -71,7 +87,6 @@ option(
   "Enable building of C++ and Objective-C tests for this project"
   ON
 )
-
 
 list(INSERT CMAKE_MODULE_PATH 0 ${PROJECT_SOURCE_DIR}/cmake)
 include(compiler_setup)
@@ -145,6 +160,10 @@ unset(RANDOM_FILE CACHE)
 set(CARES_INSTALL OFF CACHE BOOL "Disabled")
 
 set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disabled")
+# See https://github.com/protocolbuffers/protobuf/issues/12185#issuecomment-1887892723
+set(protobuf_INSTALL OFF)
+set(utf8_range_ENABLE_INSTALL OFF)
+
 if(IOS OR ANDROID)
   # C-Ares includes a number of example binaries (e.g. `ahost`) that fail to
   # build when compiling for non-host targets.
@@ -174,6 +193,13 @@ else()
   set(ZLIB_ROOT_DIR ${FIREBASE_EXTERNAL_SOURCE_DIR}/zlib)
 endif()
 
+find_package(re2 QUIET)
+if(RE2_FOUND)
+  set(gRPC_RE2_PROVIDER package CACHE STRING "Use external re2")
+else()
+  set(RE2_ROOT_DIR ${FIREBASE_EXTERNAL_SOURCE_DIR}/re2)
+endif()
+
 set(gRPC_BUILD_TESTS OFF CACHE BOOL "Disable gRPC tests")
 set(gRPC_BUILD_CODEGEN OFF CACHE BOOL "Disable gRPC codegen")
 set(gRPC_BUILD_CSHARP_EXT OFF CACHE BOOL "Disable gRPC C# extensions")
@@ -185,15 +211,15 @@ set(PROTOBUF_ROOT_DIR ${FIREBASE_EXTERNAL_SOURCE_DIR}/protobuf)
 
 add_external_subdirectory(grpc)
 
-
-# Fix up targets included by gRPC
+# Fix up targets included by boringssl (ver: b9232f9e27e5668bc0414879dcdedb2a59ea75f2)
+# We might be able to remove this with newer versions.
 if(CXX_CLANG)
-  target_compile_options(
-    absl_time_zone PRIVATE
-    -Wno-unused-template
-    -Wno-shadow
-    -Wno-tautological-type-limit-compare
-  )
+  if(TARGET crypto)
+    target_compile_options(
+      crypto PRIVATE
+      -Wno-unused-but-set-variable
+    )
+  endif()
 endif()
 
 if(MSVC)
@@ -226,6 +252,12 @@ if(NOT ZLIB_FOUND)
   )
 endif()
 
+
+# Snappy
+set(SNAPPY_BUILD_TESTS OFF CACHE BOOL "Firestore disabled")
+set(SNAPPY_BUILD_BENCHMARKS OFF CACHE BOOL "Firestore disabled")
+add_external_subdirectory(snappy)
+firebase_ios_add_alias(Snappy::Snappy snappy)
 
 # LevelDB
 set(LEVELDB_BUILD_TESTS OFF CACHE BOOL "Firestore disabled")
@@ -261,8 +293,7 @@ if(FIREBASE_IOS_BUILD_TESTS)
   enable_testing()
 endif()
 
-add_subdirectory(FirebaseAppCheck/Sources/Interop/)
+add_subdirectory(FirebaseAppCheck/Interop)
 add_subdirectory(FirebaseCore)
 add_subdirectory(Firestore)
-add_subdirectory(Interop/Auth)
-add_subdirectory(Interop/CoreDiagnostics)
+add_subdirectory(FirebaseAuth/Interop)

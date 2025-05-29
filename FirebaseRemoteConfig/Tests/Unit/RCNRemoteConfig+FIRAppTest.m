@@ -17,10 +17,10 @@
 #import <OCMock/OCMock.h>
 #import <XCTest/XCTest.h>
 
-//#import "FIRRemoteConfig+FIRApp.h"
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+// #import "FIRRemoteConfig+FIRApp.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "FirebaseRemoteConfig/Sources/Private/FIRRemoteConfig_Private.h"
-//#import "third_party/firebase/ios/Releases/FirebaseCore/Tests/FIRTestCase.h"
+// #import "third_party/firebase/ios/Releases/FirebaseCore/Tests/FIRTestCase.h"
 
 @interface RCNRemoteConfig_FIRAppTest : FIRTestCase
 
@@ -72,7 +72,7 @@
   XCTAssertThrows([rc configureConfig:app]);
 }
 
-- (void)testConfigureConfigNotIntallingSenderID {
+- (void)testConfigureConfigNotInstallingSenderID {
   id settingsMock = OCMClassMock([RCNConfigSettings class]);
   OCMStub([settingsMock instancesRespondToSelector:@selector(senderID)]).andReturn(NO);
 

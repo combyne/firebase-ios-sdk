@@ -16,15 +16,19 @@
 
 import UIKit
 
-import FirebaseCore
 import FirebaseAppCheck
+import FirebaseCore
 
-@main
 class AppDelegate: UIResponder, UIApplicationDelegate {
   func application(_ application: UIApplication,
                    didFinishLaunchingWithOptions launchOptions: [UIApplication
                      .LaunchOptionsKey: Any]?) -> Bool {
+    let providerFactory = AppCheckDebugProviderFactory()
+    AppCheck.setAppCheckProviderFactory(providerFactory)
+
     FirebaseApp.configure()
+
+    requestLimitedUseToken()
 
     requestDeviceCheckToken()
 
@@ -53,8 +57,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   func application(_ application: UIApplication,
                    didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
     // Called when the user discards a scene session.
-    // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
-    // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
+    // If any sessions were discarded while the application was not running, this will be called
+    // shortly after application:didFinishLaunchingWithOptions.
+    // Use this method to release any resources that were specific to the discarded scenes, as they
+    // will not return.
   }
 
   // MARK: App Check providers
@@ -65,11 +71,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     DeviceCheckProvider(app: firebaseApp)?.getToken { token, error in
-      if let token = token {
+      if let token {
         print("DeviceCheck token: \(token.token), expiration date: \(token.expirationDate)")
       }
 
-      if let error = error {
+      if let error {
         print("DeviceCheck error: \((error as NSError).userInfo)")
       }
     }
@@ -84,13 +90,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       print("Debug token: \(debugProvider.currentDebugToken())")
 
       debugProvider.getToken { token, error in
-        if let token = token {
+        if let token {
           print("Debug FAC token: \(token.token), expiration date: \(token.expirationDate)")
         }
 
-        if let error = error {
+        if let error {
           print("Debug error: \(error)")
         }
+      }
+    }
+  }
+
+  // MARK: App Check API
+
+  func requestLimitedUseToken() {
+    AppCheck.appCheck().limitedUseToken { result, error in
+      if let result {
+        print("FAC limited-use token: \(result.token), expiration date: \(result.expirationDate)")
+      }
+
+      if let error {
+        print("Error: \(String(describing: error))")
       }
     }
   }
@@ -107,11 +127,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     appAttestProvider.getToken { token, error in
-      if let token = token {
+      if let token {
         print("App Attest FAC token: \(token.token), expiration date: \(token.expirationDate)")
       }
 
-      if let error = error {
+      if let error {
         print("App Attest error: \(error)")
       }
     }

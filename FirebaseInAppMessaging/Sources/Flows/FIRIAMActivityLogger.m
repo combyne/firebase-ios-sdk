@@ -15,11 +15,11 @@
  */
 
 #import <TargetConditionals.h>
-#if TARGET_OS_IOS || TARGET_OS_TV
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
 
 #import <UIKit/UIKit.h>
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 #import "FirebaseInAppMessaging/Sources/FIRCore+InAppMessaging.h"
 #import "FirebaseInAppMessaging/Sources/Private/Flows/FIRIAMActivityLogger.h"
@@ -30,13 +30,17 @@ static NSString *const kIsSuccessArchiveKey = @"is_success";
 static NSString *const kTimeStampArchiveKey = @"timestamp";
 static NSString *const kDetailArchiveKey = @"detail";
 
++ (BOOL)supportsSecureCoding {
+  return YES;
+}
+
 - (id)initWithCoder:(NSCoder *)decoder {
   self = [super init];
   if (self != nil) {
     _activityType = [decoder decodeIntegerForKey:kActiveTypeArchiveKey];
-    _timestamp = [decoder decodeObjectForKey:kTimeStampArchiveKey];
+    _timestamp = [decoder decodeObjectOfClass:[NSDate class] forKey:kTimeStampArchiveKey];
     _success = [decoder decodeBoolForKey:kIsSuccessArchiveKey];
-    _detail = [decoder decodeObjectForKey:kDetailArchiveKey];
+    _detail = [decoder decodeObjectOfClass:[NSString class] forKey:kDetailArchiveKey];
   }
   return self;
 }
@@ -109,14 +113,12 @@ static NSString *const kDetailArchiveKey = @"detail";
                                              selector:@selector(appWillBecomeInactive:)
                                                  name:UIApplicationWillResignActiveNotification
                                                object:nil];
-#if defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
     if (@available(iOS 13.0, tvOS 13.0, *)) {
       [[NSNotificationCenter defaultCenter] addObserver:self
                                                selector:@selector(appWillBecomeInactive:)
                                                    name:UISceneWillDeactivateNotification
                                                  object:nil];
     }
-#endif  // defined(__IPHONE_13_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
     if (loadFromCache) {
       @try {
         [self loadFromCachePath:nil];
@@ -150,10 +152,15 @@ static NSString *const kDetailArchiveKey = @"detail";
 
 - (void)loadFromCachePath:(NSString *)cacheFilePath {
   NSString *filePath = cacheFilePath == nil ? [self.class determineCacheFilePath] : cacheFilePath;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  id fetchedActivityRecords = [NSKeyedUnarchiver unarchiveObjectWithFile:filePath];
-#pragma clang diagnostic pop
+  id fetchedActivityRecords;
+  NSData *data = [NSData dataWithContentsOfFile:filePath];
+  if (data) {
+    fetchedActivityRecords = [NSKeyedUnarchiver
+        unarchivedObjectOfClasses:[NSSet setWithObjects:[FIRIAMActivityRecord class],
+                                                        [NSMutableArray class], nil]
+                         fromData:data
+                            error:nil];
+  }
   if (fetchedActivityRecords) {
     @synchronized(self) {
       self.activityRecords = (NSMutableArray<FIRIAMActivityRecord *> *)fetchedActivityRecords;
@@ -228,4 +235,4 @@ static NSString *const kDetailArchiveKey = @"detail";
 }
 @end
 
-#endif  // TARGET_OS_IOS || TARGET_OS_TV
+#endif  // TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION

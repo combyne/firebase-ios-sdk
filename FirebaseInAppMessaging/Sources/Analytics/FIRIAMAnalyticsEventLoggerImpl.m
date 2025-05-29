@@ -15,11 +15,13 @@
  */
 
 #import <TargetConditionals.h>
-#if TARGET_OS_IOS || TARGET_OS_TV
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
+
+#import <GoogleUtilities/GULUserDefaults.h>
 
 #import "FirebaseInAppMessaging/Sources/Analytics/FIRIAMAnalyticsEventLoggerImpl.h"
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "FirebaseInAppMessaging/Sources/FIRCore+InAppMessaging.h"
 #import "FirebaseInAppMessaging/Sources/Private/Analytics/FIRIAMClearcutLogger.h"
 #import "Interop/Analytics/Public/FIRAnalyticsInterop.h"
@@ -29,7 +31,7 @@ typedef void (^FIRAUserPropertiesCallback)(NSDictionary *userProperties);
 @interface FIRIAMAnalyticsEventLoggerImpl ()
 @property(readonly, nonatomic) FIRIAMClearcutLogger *clearCutLogger;
 @property(readonly, nonatomic) id<FIRIAMTimeFetcher> timeFetcher;
-@property(nonatomic, readonly) NSUserDefaults *userDefaults;
+@property(nonatomic, readonly) GULUserDefaults *userDefaults;
 @end
 
 // in these kFAXX constants, FA represents FirebaseAnalytics
@@ -49,24 +51,19 @@ static NSString *const kFAEventNameForDismiss = @"firebase_in_app_message_dismis
 static NSString *const kFAUserPropertyForLastNotification = @"_ln";
 static NSString *const kFAUserPropertyPrefixForFIAM = @"fiam:";
 
-// This user defaults key is for the entry to tell when we should remove the private user
-// property from a prior action url click to stop conversion attribution for a campaign
-static NSString *const kFIAMUserDefaualtsKeyForRemoveUserPropertyTimeInSeconds =
-    @"firebase-iam-conversion-tracking-expires-in-seconds";
-
 @implementation FIRIAMAnalyticsEventLoggerImpl {
   id<FIRAnalyticsInterop> _analytics;
 }
 
 - (instancetype)initWithClearcutLogger:(FIRIAMClearcutLogger *)ctLogger
                       usingTimeFetcher:(id<FIRIAMTimeFetcher>)timeFetcher
-                     usingUserDefaults:(nullable NSUserDefaults *)userDefaults
+                     usingUserDefaults:(nullable GULUserDefaults *)userDefaults
                              analytics:(nullable id<FIRAnalyticsInterop>)analytics {
   if (self = [super init]) {
     _clearCutLogger = ctLogger;
     _timeFetcher = timeFetcher;
     _analytics = analytics;
-    _userDefaults = userDefaults ? userDefaults : [NSUserDefaults standardUserDefaults];
+    _userDefaults = userDefaults ? userDefaults : [GULUserDefaults standardUserDefaults];
 
     if (!_analytics) {
       FIRLogWarning(kFIRLoggerInAppMessaging, @"I-IAM280002",
@@ -174,4 +171,4 @@ static NSString *const kFIAMUserDefaualtsKeyForRemoveUserPropertyTimeInSeconds =
 }
 @end
 
-#endif  // TARGET_OS_IOS || TARGET_OS_TV
+#endif  // TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION

@@ -44,10 +44,9 @@
 
 import Combine
 import FirebaseAuth
+import FirebaseCombineSwift
 import FirebaseCore
 import FirebaseStorage
-import FirebaseStorageSwift
-import FirebaseCombineSwift
 import XCTest
 
 class StorageIntegration: XCTestCase {
@@ -85,7 +84,7 @@ class StorageIntegration: XCTestCase {
         let bundle = Bundle(for: StorageIntegration.self)
         let filePath = try XCTUnwrap(bundle.path(forResource: "1mb", ofType: "dat"),
                                      "Failed to get filePath")
-        let data = try XCTUnwrap(try Data(contentsOf: URL(fileURLWithPath: filePath)),
+        let data = try XCTUnwrap(Data(contentsOf: URL(fileURLWithPath: filePath)),
                                  "Failed to load file")
 
         for file in largeFiles + emptyFiles {
@@ -262,7 +261,9 @@ class StorageIntegration: XCTestCase {
         case .finished:
           XCTFail("Unexpected success return from putData)")
         case let .failure(error):
-          XCTAssertEqual((error as NSError).code, StorageErrorCode.unauthorized.rawValue)
+          let message = String(describing: error)
+          XCTAssertTrue(message.contains("unauthorized"))
+          XCTAssertTrue(message.contains("ios-opensource-samples.appspot.com"))
           expectation.fulfill()
         }
       }, receiveValue: { value in
@@ -289,7 +290,7 @@ class StorageIntegration: XCTestCase {
         case .finished:
           XCTFail("Unexpected success return from putFile)")
         case let .failure(error):
-          XCTAssertEqual((error as NSError).domain, StorageErrorDomain)
+          XCTAssertTrue(String(describing: error).starts(with: "unknown"))
           expectation.fulfill()
         }
       }, receiveValue: { value in
@@ -440,7 +441,10 @@ class StorageIntegration: XCTestCase {
         case .finished:
           XCTFail("Unexpected success return from getData)")
         case let .failure(error):
-          XCTAssertEqual((error as NSError).domain, StorageErrorDomain)
+          let message = String(describing: error)
+          XCTAssertTrue(message.contains("downloadSizeExceeded"))
+          XCTAssertTrue(message.contains("1048576"))
+          XCTAssertTrue(message.contains("1024"))
           expectation.fulfill()
         }
       }, receiveValue: { value in
@@ -632,8 +636,8 @@ class StorageIntegration: XCTestCase {
   private func waitForExpectations() {
     let kFIRStorageIntegrationTestTimeout = 30.0
     waitForExpectations(timeout: kFIRStorageIntegrationTestTimeout,
-                        handler: { (error) -> Void in
-                          if let error = error {
+                        handler: { error in
+                          if let error {
                             print(error)
                           }
                         })

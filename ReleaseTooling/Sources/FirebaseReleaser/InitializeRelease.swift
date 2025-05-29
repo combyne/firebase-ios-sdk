@@ -19,7 +19,7 @@ import Foundation
 import FirebaseManifest
 import Utils
 
-struct InitializeRelease {
+enum InitializeRelease {
   static func setupRepo(gitRoot: URL) -> String {
     let manifest = FirebaseManifest.shared
     let branch = createVersionBranch(path: gitRoot, version: manifest.version)
@@ -35,9 +35,10 @@ struct InitializeRelease {
     let versionParts = version.split(separator: ".")
     let minorVersion = "\(versionParts[0]).\(versionParts[1])"
     let branch = "version-\(minorVersion)"
-    Shell.executeCommand("git checkout master", workingDir: path)
-    Shell.executeCommand("git pull", workingDir: path)
-    Shell.executeCommand("git checkout -b \(branch)", workingDir: path)
+    Shell.executeCommand(
+      "git checkout \(branch) 2>/dev/null || git checkout -b \(branch)",
+      workingDir: path
+    )
     return branch
   }
 
@@ -45,36 +46,56 @@ struct InitializeRelease {
   private static func updatePodspecs(path: URL, manifest: FirebaseManifest.Manifest) {
     for pod in manifest.pods {
       let version = manifest.versionString(pod)
-      if !pod.isClosedSource {
-        if pod.name == "Firebase" {
-          updateFirebasePodspec(path: path, manifest: manifest)
-        } else {
-          // Patch the new version to the podspec's version attribute.
-          Shell.executeCommand("sed -i.bak -e \"s/\\(\\.version.*=[[:space:]]*'\\).*'/\\1" +
-            "\(version)'/\" \(pod.name).podspec", workingDir: path)
-        }
+      if pod.name == "Firebase" {
+        updateFirebasePodspec(path: path, manifest: manifest)
       } else {
-        let fileName = "\(pod.name).podspec.json"
+        updatePodspecVersion(pod: pod, version: version, path: path)
 
-        // These are the keys in the `*.podspec.json` files that map to a
-        // semantic version that needs to be bumped.
-        let versionedKeys = [
-          "GoogleAppMeasurement",
-          "GoogleAppMeasurement/WithoutAdIdSupport",
-          "version",
-        ]
-
-        let scripts: [String] = versionedKeys.map { key in
-          let pattern = #""\#(key)": ".*""#
-          let replace = #""\#(key)": "\#(version)""#
-          let script = "-e 's|\(pattern)|\(replace)|'"
-          return script
+        // Pods dependencies to update to latest.
+        if pod.name.hasPrefix("GoogleAppMeasurement") ||
+          pod.name == "FirebaseCore" ||
+          pod.name == "FirebaseCoreExtension" ||
+          pod.name == "FirebaseCoreInternal" ||
+          pod.name == "FirebaseFirestoreInternal" ||
+          pod.name == "FirebaseAI" {
+          updateDependenciesToLatest(
+            dependency: pod.name,
+            pods: manifest.pods,
+            version: version,
+            path: path
+          )
+        } else if version.hasSuffix(".0.0") {
+          let patchlessVersion = String(version[..<version.lastIndex(of: ".")!])
+          updateDependenciesToLatest(
+            dependency: pod.name,
+            pods: manifest.pods,
+            version: patchlessVersion,
+            path: path
+          )
         }
-
-        let command = "sed -i.bak \(scripts.joined(separator: " ")) \(fileName)"
-        Shell.executeCommand(command, workingDir: path)
       }
     }
+  }
+
+  private static func updatePodspecVersion(pod: Pod,
+                                           version: String,
+                                           path: URL) {
+    // Replace the pod's `version` attribute with the new version.
+    let script = #"-e "s|(\.version.*=[[:space:]]*) '.*|\1 '\#(version)'|""#
+    let command = "sed -i.bak -E \(script) \(pod.podspecName())"
+    Shell.executeCommand(command, workingDir: path)
+  }
+
+  /// Update dependencies that we want pinned to the latest version.
+  private static func updateDependenciesToLatest(dependency: String,
+                                                 pods: [Pod],
+                                                 version: String,
+                                                 path: URL) {
+    let script =
+      #"-e "s|(\.dependency '"# + dependency + #"(/.*)?',[[:space:]]*'[^0-9]*).*|\1\#(version)'|""#
+    let podspecs = pods.map { $0.podspecName() }.joined(separator: " ")
+    let command = "sed -i.bak -E \(script) \(podspecs)"
+    Shell.executeCommand(command, workingDir: path)
   }
 
   // This function patches the versions in the Firebase.podspec. It uses Swift instead of sed
@@ -116,7 +137,8 @@ struct InitializeRelease {
     }
   }
 
-  /// Update the existing version to the given version by writing to a given string using the provided range.
+  /// Update the existing version to the given version by writing to a given string using the
+  /// provided range.
   /// - Parameters:
   ///   - contents: A reference to a String containing a version that will be updated.
   ///   - range: The range containing a version substring that will be updated.

@@ -84,7 +84,8 @@ public extension FileManager {
     return cacheRoot
   }
 
-  /// Removes a directory or file if it exists. This is helpful to clean up error handling for checks that
+  /// Removes a directory or file if it exists. This is helpful to clean up error handling for
+  /// checks that
   /// shouldn't fail. The only situation this could potentially fail is permission errors or if a
   /// folder is open in Finder, and in either state the user needs to close the window or fix the
   /// permissions. A fatal error will be thrown in those situations.
@@ -101,10 +102,11 @@ public extension FileManager {
     }
   }
 
-  /// Enable a single unique temporary workspace per execution with a sortable and readable timestamp.
+  /// Enable a single unique temporary workspace per execution with a sortable and readable
+  /// timestamp.
   private static func timeStamp() -> String {
     let formatter = DateFormatter()
-    formatter.dateFormat = "YYYY-MM-dd'T'HH-mm-ss"
+    formatter.dateFormat = "yyyy-MM-dd'T'HH-mm-ss"
     return formatter.string(from: Date())
   }
 
@@ -157,7 +159,13 @@ public extension FileManager {
     // Recursively search using the enumerator, adding any matches to the array.
     var matches: [URL] = []
     var foundXcframework = false // Ignore .frameworks after finding an xcframework.
-    while let fileURL = dirEnumerator.nextObject() as? URL {
+    for case let fileURL as URL in dirEnumerator {
+      // Never mess with Privacy.bundles
+      if fileURL.lastPathComponent.hasSuffix("_Privacy.bundle") {
+        dirEnumerator.skipDescendants()
+        continue
+      }
+
       switch type {
       case .allFiles:
         // Skip directories, include everything else.

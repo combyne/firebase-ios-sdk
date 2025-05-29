@@ -28,6 +28,7 @@
 #include "Firestore/core/src/local/local_write_result.h"
 #include "Firestore/core/src/local/query_result.h"
 #include "Firestore/core/src/local/target_data.h"
+#include "Firestore/core/src/model/aggregate_field.h"
 #include "Firestore/core/src/model/document_key.h"
 #include "Firestore/core/src/model/document_key_set.h"
 #include "Firestore/core/src/model/document_set.h"
@@ -56,6 +57,7 @@ using local::LocalWriteResult;
 using local::QueryPurpose;
 using local::QueryResult;
 using local::TargetData;
+using model::AggregateField;
 using model::BatchId;
 using model::DocumentKey;
 using model::DocumentKeySet;
@@ -102,27 +104,31 @@ void SyncEngine::AssertCallbackExists(absl::string_view source) {
               "Tried to call '%s' before callback was registered.", source);
 }
 
-TargetId SyncEngine::Listen(Query query) {
+TargetId SyncEngine::Listen(Query query, bool should_listen_to_remote) {
   AssertCallbackExists("Listen");
 
   HARD_ASSERT(query_views_by_query_.find(query) == query_views_by_query_.end(),
               "We already listen to query: %s", query.ToString());
 
   TargetData target_data = local_store_->AllocateTarget(query.ToTarget());
-  ViewSnapshot view_snapshot =
-      InitializeViewAndComputeSnapshot(query, target_data.target_id());
+  TargetId target_id = target_data.target_id();
+  nanopb::ByteString resume_token = target_data.resume_token();
+
+  ViewSnapshot view_snapshot = InitializeViewAndComputeSnapshot(
+      query, target_id, std::move(resume_token));
   std::vector<ViewSnapshot> snapshots;
   // Not using the `std::initializer_list` constructor to avoid extra copies.
   snapshots.push_back(std::move(view_snapshot));
   sync_engine_callback_->OnViewSnapshots(std::move(snapshots));
 
-  // TODO(wuandy): move `target_data` into `Listen`.
-  remote_store_->Listen(target_data);
-  return target_data.target_id();
+  if (should_listen_to_remote) {
+    remote_store_->Listen(std::move(target_data));
+  }
+  return target_id;
 }
 
-ViewSnapshot SyncEngine::InitializeViewAndComputeSnapshot(const Query& query,
-                                                          TargetId target_id) {
+ViewSnapshot SyncEngine::InitializeViewAndComputeSnapshot(
+    const Query& query, TargetId target_id, nanopb::ByteString resume_token) {
   QueryResult query_result =
       local_store_->ExecuteQuery(query, /* use_previous_results= */ true);
 
@@ -134,9 +140,9 @@ ViewSnapshot SyncEngine::InitializeViewAndComputeSnapshot(const Query& query,
     const Query& mirror_query = queries_by_target_[target_id][0];
     current_sync_state =
         query_views_by_query_[mirror_query]->view().sync_state();
-    synthesized_current_change = TargetChange::CreateSynthesizedTargetChange(
-        current_sync_state == SyncState::Synced);
   }
+  synthesized_current_change = TargetChange::CreateSynthesizedTargetChange(
+      current_sync_state == SyncState::Synced, std::move(resume_token));
 
   View view(query, query_result.remote_keys());
   ViewDocumentChanges view_doc_changes =
@@ -157,22 +163,48 @@ ViewSnapshot SyncEngine::InitializeViewAndComputeSnapshot(const Query& query,
   return view_change.snapshot().value();
 }
 
-void SyncEngine::StopListening(const Query& query) {
-  AssertCallbackExists("StopListening");
+void SyncEngine::ListenToRemoteStore(Query query) {
+  AssertCallbackExists("ListenToRemoteStore");
+  TargetData target_data = local_store_->AllocateTarget(query.ToTarget());
+  remote_store_->Listen(std::move(target_data));
+}
 
+void SyncEngine::StopListening(const Query& query,
+                               bool should_stop_remote_listening) {
+  AssertCallbackExists("StopListening");
+  StopListeningAndReleaseTarget(query, /** last_listen= */ true,
+                                should_stop_remote_listening);
+}
+
+void SyncEngine::StopListeningToRemoteStoreOnly(const Query& query) {
+  AssertCallbackExists("StopListeningToRemoteStoreOnly");
+  StopListeningAndReleaseTarget(query, /** last_listen= */ false,
+                                /** should_stop_remote_listening= */ true);
+}
+
+void SyncEngine::StopListeningAndReleaseTarget(
+    const Query& query, bool last_listen, bool should_stop_remote_listening) {
   auto query_view = query_views_by_query_[query];
   HARD_ASSERT(query_view, "Trying to stop listening to a query not found");
 
-  query_views_by_query_.erase(query);
+  if (last_listen) {
+    query_views_by_query_.erase(query);
+  }
 
+  // One target could have multiple queries mapped to it.
   TargetId target_id = query_view->target_id();
   auto& queries = queries_by_target_[target_id];
   queries.erase(std::remove(queries.begin(), queries.end(), query),
                 queries.end());
 
-  if (queries.empty()) {
-    local_store_->ReleaseTarget(target_id);
+  if (!queries.empty()) return;
+
+  if (should_stop_remote_listening) {
     remote_store_->StopListening(target_id);
+  }
+
+  if (last_listen) {
+    local_store_->ReleaseTarget(target_id);
     RemoveAndCleanupTarget(target_id, Status::OK());
   }
 }
@@ -234,18 +266,26 @@ void SyncEngine::RegisterPendingWritesCallback(StatusCallback callback) {
       std::move(callback));
 }
 
-void SyncEngine::Transaction(int retries,
+void SyncEngine::Transaction(int max_attempts,
                              const std::shared_ptr<AsyncQueue>& worker_queue,
                              TransactionUpdateCallback update_callback,
                              TransactionResultCallback result_callback) {
+  HARD_ASSERT(max_attempts >= 0, "invalid max_attempts: %s", max_attempts);
   worker_queue->VerifyIsCurrentQueue();
-  HARD_ASSERT(retries >= 0, "Got negative number of retries for transaction");
 
   // Allocate a shared_ptr so that the TransactionRunner can outlive this frame.
-  auto runner = std::make_shared<TransactionRunner>(worker_queue, remote_store_,
-                                                    std::move(update_callback),
-                                                    std::move(result_callback));
+  auto runner = std::make_shared<TransactionRunner>(
+      worker_queue, remote_store_, std::move(update_callback),
+      std::move(result_callback), max_attempts);
   runner->Run();
+}
+
+void SyncEngine::RunAggregateQuery(
+    const core::Query& query,
+    const std::vector<model::AggregateField>& aggregates,
+    api::AggregateQueryCallback&& result_callback) {
+  remote_store_->RunAggregateQuery(query, aggregates,
+                                   std::move(result_callback));
 }
 
 void SyncEngine::HandleCredentialChange(const credentials::User& user) {
@@ -333,7 +373,7 @@ void SyncEngine::HandleRejectedListen(TargetId target_id, Status error) {
     // copy-initialization" error.
     DocumentKeySet limbo_documents{limbo_key};
     RemoteEvent::TargetChangeMap target_changes;
-    RemoteEvent::TargetSet target_mismatches;
+    RemoteEvent::TargetMismatchMap target_mismatches;
     DocumentUpdateMap document_updates{{limbo_key, doc}};
 
     RemoteEvent event{SnapshotVersion::None(), std::move(target_changes),
@@ -483,15 +523,24 @@ void SyncEngine::EmitNewSnapshotsAndNotifyLocalStore(
     }
 
     absl::optional<TargetChange> target_changes;
+    bool targetIsPendingReset = false;
     if (maybe_remote_event.has_value()) {
       const RemoteEvent& remote_event = maybe_remote_event.value();
-      auto it = remote_event.target_changes().find(query_view->target_id());
-      if (it != remote_event.target_changes().end()) {
-        target_changes = it->second;
+      auto changes_iter =
+          remote_event.target_changes().find(query_view->target_id());
+      if (changes_iter != remote_event.target_changes().end()) {
+        target_changes = changes_iter->second;
+      }
+
+      auto mismatches_iter =
+          remote_event.target_mismatches().find(query_view->target_id());
+      if (mismatches_iter != remote_event.target_mismatches().end()) {
+        targetIsPendingReset = true;
       }
     }
-    ViewChange view_change =
-        view.ApplyChanges(view_doc_changes, target_changes);
+
+    ViewChange view_change = view.ApplyChanges(view_doc_changes, target_changes,
+                                               targetIsPendingReset);
 
     UpdateTrackedLimboDocuments(view_change.limbo_changes(),
                                 query_view->target_id());

@@ -54,17 +54,19 @@ def main():
     scheme = flags['-scheme']
     xcresult_path = find_xcresult_path(project, scheme)
 
-  version = find_xcode_major_version()
-  if version <= 10:
-    files = find_legacy_log_files(xcresult_path)
-    cat_files(files, sys.stdout)
+  log_id = find_log_id(xcresult_path)
+  log = export_log(xcresult_path, log_id)
 
+  # Avoid a potential UnicodeEncodeError raised by sys.stdout.write() by
+  # doing a relaxed encoding ourselves.
+  if hasattr(sys.stdout, 'buffer'):
+    log_encoded = log.encode('utf8', errors='backslashreplace')
+    sys.stdout.flush()
+    sys.stdout.buffer.write(log_encoded)
   else:
-    # Xcode 11 and up ship xcresult tool which standardizes the xcresult format
-    # but also makes it harder to deal with.
-    log_id = find_log_id(xcresult_path)
-    log = export_log(xcresult_path, log_id)
-    sys.stdout.write(log)
+    log_encoded = log.encode('ascii', errors='backslashreplace')
+    log_decoded = log_encoded.decode('ascii', errors='strict')
+    sys.stdout.write(log_decoded)
 
 
 # Most flags on the xcodebuild command-line are uninteresting, so only pull
@@ -267,18 +269,6 @@ def collect_log_output(activity_log, result):
         collect_log_output(subsection, result)
 
 
-def find_xcode_major_version():
-  """Determines the major version number of Xcode."""
-  cmd = ['xcodebuild', '-version']
-  command_trace.log(cmd)
-
-  result = str(subprocess.check_output(cmd))
-  version = result.split('\n', 1)[0]
-  version = re.sub(r'Xcode ', '', version)
-  version = re.sub(r'\..*', '', version)
-  return int(version)
-
-
 def xcresulttool(*args):
   """Runs xcresulttool and returns its output as a string."""
   cmd = ['xcrun', 'xcresulttool']
@@ -291,7 +281,8 @@ def xcresulttool(*args):
 
 def xcresulttool_json(*args):
   """Runs xcresulttool and its output as parsed JSON."""
-  args = list(args) + ['--format', 'json']
+  # Note: --legacy is required for Xcode 16.
+  args = list(args) + ['--format', 'json', '--legacy']
   contents = xcresulttool(*args)
   return json.loads(contents)
 

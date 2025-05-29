@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'FirebaseDynamicLinks'
-  s.version          = '8.10.0'
+  s.version          = '11.14.0'
   s.summary          = 'Firebase Dynamic Links'
 
   s.description      = <<-DESC
@@ -8,7 +8,7 @@ Firebase Dynamic Links are deep links that enhance user experience and increase 
                        DESC
 
   s.homepage         = 'https://firebase.google.com'
-  s.license          = { :type => 'Apache', :file => 'LICENSE' }
+  s.license          = { :type => 'Apache-2.0', :file => 'LICENSE' }
   s.authors          = 'Google, Inc.'
 
   s.source           = {
@@ -16,20 +16,28 @@ Firebase Dynamic Links are deep links that enhance user experience and increase 
     :tag => 'CocoaPods-' + s.version.to_s
   }
   s.social_media_url = 'https://twitter.com/Firebase'
-  s.ios.deployment_target = '10.0'
+  s.ios.deployment_target = '13.0'
 
-  s.cocoapods_version = '>= 1.4.0'
+  s.swift_version = '5.9'
+
+  # See https://firebase.google.com/support/dynamic-links-faq
+  s.deprecated = true
+
+  s.cocoapods_version = '>= 1.12.0'
   s.prefix_header_file = false
 
   s.source_files = [
     'FirebaseDynamicLinks/Sources/**/*.[mh]',
     'Interop/Analytics/Public/*.h',
-    'FirebaseCore/Sources/Private/*.h',
+    'FirebaseCore/Extension/*.h',
   ]
   s.public_header_files = 'FirebaseDynamicLinks/Sources/Public/FirebaseDynamicLinks/*.h'
+  s.resource_bundles = {
+    "#{s.module_name}_Privacy" => 'FirebaseDynamicLinks/Sources/Resources/PrivacyInfo.xcprivacy'
+  }
   s.frameworks = 'QuartzCore'
   s.weak_framework = 'WebKit'
-  s.dependency 'FirebaseCore', '~> 8.0'
+  s.dependency 'FirebaseCore', '~> 11.14.0'
 
   s.pod_target_xcconfig = {
     'GCC_C_LANGUAGE_STANDARD' => 'c99',
@@ -47,7 +55,7 @@ Firebase Dynamic Links are deep links that enhance user experience and increase 
                            # Supply plist for custom domain testing.
                            'FirebaseDynamicLinks/Tests/Unit/DL-Info.plist'
     unit_tests.dependency 'OCMock'
-    unit_tests.dependency 'GoogleUtilities/MethodSwizzler', '~> 7.6'
-    unit_tests.dependency 'GoogleUtilities/SwizzlerTestHelpers', '~> 7.6'
+    unit_tests.dependency 'GoogleUtilities/MethodSwizzler', '~> 8.1'
+    unit_tests.dependency 'GoogleUtilities/SwizzlerTestHelpers', '~> 8.1'
   end
 end

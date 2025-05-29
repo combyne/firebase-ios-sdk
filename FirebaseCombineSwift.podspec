@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'FirebaseCombineSwift'
-  s.version          = '8.0.0'
+  s.version          = '11.14.0'
   s.summary          = 'Swift extensions with Combine support for Firebase'
 
   s.description      = <<-DESC
@@ -9,7 +9,7 @@ for internal testing only. It should not be published.
                        DESC
 
   s.homepage         = 'https://firebase.google.com'
-  s.license          = { :type => 'Apache', :file => 'LICENSE' }
+  s.license          = { :type => 'Apache-2.0', :file => 'LICENSE' }
   s.authors          = 'Google, Inc.'
 
   s.source           = {
@@ -19,19 +19,19 @@ for internal testing only. It should not be published.
 
   s.social_media_url = 'https://twitter.com/Firebase'
 
-  s.swift_version         = '5.0'
+  s.swift_version       = '5.9'
 
   ios_deployment_target = '13.0'
   osx_deployment_target = '10.15'
   tvos_deployment_target = '13.0'
-  watchos_deployment_target = '6.0'
+  watchos_deployment_target = '7.0'
 
   s.ios.deployment_target = ios_deployment_target
   s.osx.deployment_target = osx_deployment_target
   s.tvos.deployment_target = tvos_deployment_target
   s.watchos.deployment_target = watchos_deployment_target
 
-  s.cocoapods_version = '>= 1.4.0'
+  s.cocoapods_version = '>= 1.12.0'
   s.prefix_header_file = false
 
   source = 'FirebaseCombineSwift/Sources/'
@@ -51,12 +51,11 @@ for internal testing only. It should not be published.
   s.osx.framework = 'AppKit'
   s.tvos.framework = 'UIKit'
 
-  s.dependency 'FirebaseCore', '~> 8.0'
-  s.dependency 'FirebaseAuth', '~> 8.0'
-  s.dependency 'FirebaseFunctions', '~> 8.0'
-  s.dependency 'FirebaseFirestore', '~> 8.0'
-  s.dependency 'FirebaseStorage', '~> 8.0'
-  s.dependency 'FirebaseStorageSwift', '~> 8.0-beta'
+  s.dependency 'FirebaseCore', '~> 11.14.0'
+  s.dependency 'FirebaseAuth', '~> 11.0'
+  s.dependency 'FirebaseFunctions', '~> 11.0'
+  s.dependency 'FirebaseFirestore', '~> 11.0'
+  s.dependency 'FirebaseStorage', '~> 11.0'
 
   s.pod_target_xcconfig = {
     'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}"',
@@ -69,9 +68,13 @@ for internal testing only. It should not be published.
       :osx => osx_deployment_target,
       :tvos => tvos_deployment_target
     }
+    #TODO: Auth unit tests need to be ported from depending on ObjC internal implementation.
     unit_tests.source_files = [
-      'FirebaseCombineSwift/Tests/Unit/**/*.swift',
+      'FirebaseCombineSwift/Tests/Unit/Firestore/*.swift',
+      'FirebaseCombineSwift/Tests/Unit/Storage/*.swift',
       'FirebaseCombineSwift/Tests/Unit/**/*.h',
+      'FirebaseCombineSwift/Tests/Unit/Credentials.swift',
+      'FirebaseCombineSwift/Tests/Unit/FirebaseApp+Tests.swift',
       'SharedTestUtilities/FIROptionsMock.[mh]',
       'SharedTestUtilities/FIRComponentTestUtilities.[mh]',
     ]
@@ -82,7 +85,6 @@ for internal testing only. It should not be published.
     }
     unit_tests.dependency 'OCMock'
     unit_tests.dependency 'FirebaseAuthTestingSupport'
-    unit_tests.dependency 'FirebaseFunctionsTestingSupport'
     unit_tests.dependency 'FirebaseFirestoreTestingSupport'
   end
 
@@ -95,13 +97,13 @@ for internal testing only. It should not be published.
     }
     int_tests.source_files = [
       'FirebaseCombineSwift/Tests/Integration/Storage/StorageIntegration.swift',
-      'FirebaseStorage/Tests/SwiftIntegration/Credentials.swift'
+      'FirebaseStorage/Tests/Integration/Credentials.swift'
     ]
     int_tests.requires_app_host = true
     # Resources are shared with FirebaseStorage's integration tests.
     int_tests.resources = 'FirebaseStorage/Tests/Integration/Resources/1mb.dat',
                           'FirebaseStorage/Tests/Integration/Resources/GoogleService-Info.plist',
                           'FirebaseStorage/Tests/Integration/Resources/HomeImprovement.numbers'
-    int_tests.dependency 'FirebaseAuth', '~> 8.0'
+    int_tests.dependency 'FirebaseAuth', '~> 11.0'
   end
 end

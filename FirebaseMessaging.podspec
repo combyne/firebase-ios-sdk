@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'FirebaseMessaging'
-  s.version          = '8.10.0'
+  s.version          = '11.14.0'
   s.summary          = 'Firebase Messaging'
 
   s.description      = <<-DESC
@@ -11,7 +11,7 @@ device, and it is completely free.
                        DESC
 
   s.homepage         = 'https://firebase.google.com'
-  s.license          = { :type => 'Apache', :file => 'LICENSE' }
+  s.license          = { :type => 'Apache-2.0', :file => 'LICENSE' }
   s.authors          = 'Google, Inc.'
 
   s.source           = {
@@ -20,28 +20,34 @@ device, and it is completely free.
   }
   s.social_media_url = 'https://twitter.com/Firebase'
 
-  ios_deployment_target = '10.0'
-  osx_deployment_target = '10.12'
-  tvos_deployment_target = '10.0'
-  watchos_deployment_target = '6.0'
+  ios_deployment_target = '13.0'
+  osx_deployment_target = '10.15'
+  tvos_deployment_target = '13.0'
+  watchos_deployment_target = '7.0'
+
+  s.swift_version = '5.9'
 
   s.ios.deployment_target = ios_deployment_target
   s.osx.deployment_target = osx_deployment_target
   s.tvos.deployment_target = tvos_deployment_target
   s.watchos.deployment_target = watchos_deployment_target
 
-  s.cocoapods_version = '>= 1.4.0'
+  s.cocoapods_version = '>= 1.12.0'
   s.prefix_header_file = false
 
   base_dir = "FirebaseMessaging/"
   s.source_files = [
-    base_dir + 'Sources/**/*',
+    base_dir + 'Sources/**/*.{c,m,h}',
     base_dir + 'Sources/Protogen/nanopb/*.h',
+    base_dir + 'Interop/*.h',
     'Interop/Analytics/Public/*.h',
-    'FirebaseCore/Sources/Private/*.h',
+    'FirebaseCore/Extension/*.h',
     'FirebaseInstallations/Source/Library/Private/*.h',
   ]
   s.public_header_files = base_dir + 'Sources/Public/FirebaseMessaging/*.h'
+  s.resource_bundles = {
+    "#{s.module_name}_Privacy" => 'FirebaseMessaging/Sources/Resources/PrivacyInfo.xcprivacy'
+  }
   s.library = 'sqlite3'
   s.pod_target_xcconfig = {
     'GCC_C_LANGUAGE_STANDARD' => 'c99',
@@ -55,14 +61,14 @@ device, and it is completely free.
   s.tvos.framework = 'SystemConfiguration'
   s.osx.framework = 'SystemConfiguration'
   s.weak_framework = 'UserNotifications'
-  s.dependency 'FirebaseInstallations', '~> 8.0'
-  s.dependency 'FirebaseCore', '~> 8.0'
-  s.dependency 'GoogleUtilities/AppDelegateSwizzler', '~> 7.6'
-  s.dependency 'GoogleUtilities/Reachability', '~> 7.6'
-  s.dependency 'GoogleUtilities/Environment', '~> 7.6'
-  s.dependency 'GoogleUtilities/UserDefaults', '~> 7.6'
-  s.dependency 'GoogleDataTransport', '~> 9.1'
-  s.dependency 'nanopb', '~> 2.30908.0'
+  s.dependency 'FirebaseInstallations', '~> 11.0'
+  s.dependency 'FirebaseCore', '~> 11.14.0'
+  s.dependency 'GoogleUtilities/AppDelegateSwizzler', '~> 8.1'
+  s.dependency 'GoogleUtilities/Reachability', '~> 8.1'
+  s.dependency 'GoogleUtilities/Environment', '~> 8.1'
+  s.dependency 'GoogleUtilities/UserDefaults', '~> 8.1'
+  s.dependency 'GoogleDataTransport', '~> 10.0'
+  s.dependency 'nanopb', '~> 3.30910.0'
 
   s.test_spec 'unit' do |unit_tests|
     unit_tests.scheme = { :code_coverage => true }

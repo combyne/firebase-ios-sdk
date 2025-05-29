@@ -18,10 +18,10 @@
 #define FIRESTORE_CORE_SRC_UTIL_ASYNC_QUEUE_H_
 
 #include <atomic>
-#include <chrono>  // NOLINT(build/c++11)
+#include <chrono>
 #include <functional>
 #include <memory>
-#include <mutex>  // NOLINT(build/c++11)
+#include <mutex>
 #include <vector>
 
 #include "Firestore/core/src/util/executor.h"
@@ -60,7 +60,7 @@ enum class TimerId {
   OnlineStateTimeout,
 
   /**
-   * A timer used to periodically attempt LRU Garbage collection
+   * A timer used to periodically attempt LRU Garbage collection.
    */
   GarbageCollectionDelay,
 
@@ -68,7 +68,12 @@ enum class TimerId {
    * A timer used to retry transactions. Since there can be multiple concurrent
    * transactions, multiple of these may be in the queue at a given time.
    */
-  RetryTransaction
+  RetryTransaction,
+
+  /**
+   * A timer used to periodically attempt Index Backfill
+   */
+  IndexBackfillDelay
 };
 
 // A serial queue that executes given operations asynchronously, one at a time.

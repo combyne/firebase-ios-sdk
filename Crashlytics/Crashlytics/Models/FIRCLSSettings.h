@@ -106,6 +106,26 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, readonly) uint32_t maxCustomKeys;
 
+/**
+ * Returns the initial upload rate for on-demand exception reporting.
+ */
+@property(nonatomic, readonly) double onDemandUploadRate;
+
+/**
+ * Base exponent used when exponential backoff is triggered for on-demand reporting.
+ */
+@property(nonatomic, readonly) double onDemandBackoffBase;
+
+/**
+ * Step duration to use with exponential backoff for on-demand reporting.
+ */
+@property(nonatomic, readonly) uint32_t onDemandBackoffStepDuration;
+
+/**
+ * When this is true, Crashlytics will suspend all threads to do on-demand fatal recording.
+ */
+@property(nonatomic, readonly) BOOL onDemandThreadSuspensionEnabled;
+
 @end
 
 NS_ASSUME_NONNULL_END

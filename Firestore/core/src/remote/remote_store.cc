@@ -39,6 +39,7 @@ using core::Transaction;
 using local::LocalStore;
 using local::QueryPurpose;
 using local::TargetData;
+using model::AggregateField;
 using model::BatchId;
 using model::DocumentKeySet;
 using model::kBatchIdUnknown;
@@ -84,14 +85,14 @@ void RemoteStore::Start() {
       [this](ConnectivityMonitor::NetworkStatus network_status) {
         if (network_status == ConnectivityMonitor::NetworkStatus::Unavailable) {
           LOG_DEBUG(
-              "RemoteStore %s ignoring connectivity callback for unavailable "
+              "RemoteStore %x ignoring connectivity callback for unavailable "
               "network",
               this);
           return;
         }
 
         if (CanUseNetwork()) {
-          LOG_DEBUG("RemoteStore %s restarting streams as connectivity changed",
+          LOG_DEBUG("RemoteStore %x restarting streams as connectivity changed",
                     this);
           RestartNetwork();
         }
@@ -138,7 +139,7 @@ void RemoteStore::DisableNetworkInternal() {
 }
 
 void RemoteStore::Shutdown() {
-  LOG_DEBUG("RemoteStore %s shutting down", this);
+  LOG_DEBUG("RemoteStore %x shutting down", this);
   is_network_enabled_ = false;
   DisableNetworkInternal();
 
@@ -151,20 +152,20 @@ void RemoteStore::Shutdown() {
 
 // Watch Stream
 
-void RemoteStore::Listen(const TargetData& target_data) {
+void RemoteStore::Listen(TargetData target_data) {
   TargetId target_key = target_data.target_id();
   if (listen_targets_.find(target_key) != listen_targets_.end()) {
     return;
   }
 
   // Mark this as something the client is currently listening for.
-  listen_targets_[target_key] = target_data;
+  listen_targets_[target_key] = std::move(target_data);
 
   if (ShouldStartWatchStream()) {
     // The listen will be sent in `OnWatchStreamOpen`
     StartWatchStream();
   } else if (watch_stream_->IsOpen()) {
-    SendWatchRequest(target_data);
+    SendWatchRequest(listen_targets_[target_key]);
   }
 }
 
@@ -190,10 +191,19 @@ void RemoteStore::StopListening(TargetId target_id) {
 }
 
 void RemoteStore::SendWatchRequest(const TargetData& target_data) {
-  // We need to increment the the expected number of pending responses we're due
+  // We need to increment the expected number of pending responses we're due
   // from watch so we wait for the ack to process any messages from this target.
   watch_change_aggregator_->RecordPendingTargetRequest(target_data.target_id());
-  watch_stream_->WatchQuery(target_data);
+
+  // Add expectedCount to target if there is a resume token.
+  if (!target_data.resume_token().empty()) {
+    int32_t expectedCount =
+        GetRemoteKeysForTarget(target_data.target_id()).size();
+    TargetData new_target_data = target_data.WithExpectedCount(expectedCount);
+    watch_stream_->WatchQuery(new_target_data);
+  } else {
+    watch_stream_->WatchQuery(target_data);
+  }
 }
 
 void RemoteStore::SendUnwatchRequest(TargetId target_id) {
@@ -318,7 +328,10 @@ void RemoteStore::RaiseWatchSnapshot(const SnapshotVersion& snapshot_version) {
 
   // Re-establish listens for the targets that have been invalidated by
   // existence filter mismatches.
-  for (TargetId target_id : remote_event.target_mismatches()) {
+  for (const auto& entry : remote_event.target_mismatches()) {
+    const TargetId& target_id = entry.first;
+    const QueryPurpose& purpose = entry.second;
+
     auto found = listen_targets_.find(target_id);
     if (found == listen_targets_.end()) {
       // A watched target might have been removed already.
@@ -342,8 +355,7 @@ void RemoteStore::RaiseWatchSnapshot(const SnapshotVersion& snapshot_version) {
     // that we flag the first re-listen this way without impacting future
     // listens of this target (that might happen e.g. on reconnect).
     TargetData request_target_data(target_data.target(), target_id,
-                                   target_data.sequence_number(),
-                                   QueryPurpose::ExistenceFilterMismatch);
+                                   target_data.sequence_number(), purpose);
     SendWatchRequest(request_target_data);
   }
 
@@ -362,6 +374,19 @@ void RemoteStore::ProcessTargetError(const WatchTargetChange& change) {
       watch_change_aggregator_->RemoveTarget(target_id);
       sync_engine_->HandleRejectedListen(target_id, change.cause());
     }
+  }
+}
+
+void RemoteStore::RunAggregateQuery(
+    const core::Query& query,
+    const std::vector<AggregateField>& aggregates,
+    api::AggregateQueryCallback&& result_callback) {
+  if (CanUseNetwork()) {
+    datastore_->RunAggregateQuery(query, aggregates,
+                                  std::move(result_callback));
+  } else {
+    result_callback(Status::FromErrno(Error::kErrorUnavailable,
+                                      "Failed to get result from server."));
   }
 }
 
@@ -489,7 +514,7 @@ void RemoteStore::HandleHandshakeError(const Status& status) {
   if (Datastore::IsPermanentError(status)) {
     std::string token = util::ToString(write_stream_->last_stream_token());
     LOG_DEBUG(
-        "RemoteStore %s error before completed handshake; resetting "
+        "RemoteStore %x error before completed handshake; resetting "
         "stream token %s: "
         "error code: '%s', details: '%s'",
         this, token, status.code(), status.error_message());
@@ -547,6 +572,10 @@ absl::optional<TargetData> RemoteStore::GetTargetDataForTarget(
                                         : absl::optional<TargetData>{};
 }
 
+const model::DatabaseId& RemoteStore::GetDatabaseId() const {
+  return datastore_->database_info().database_id();
+}
+
 void RemoteStore::RestartNetwork() {
   is_network_enabled_ = false;
   DisableNetworkInternal();
@@ -561,7 +590,7 @@ void RemoteStore::HandleCredentialChange() {
     // Tear down and re-create our network streams. This will ensure we get a
     // fresh auth token for the new user and re-fill the write pipeline with new
     // mutations from the `LocalStore` (since mutations are per-user).
-    LOG_DEBUG("RemoteStore %s restarting streams for new credential", this);
+    LOG_DEBUG("RemoteStore %x restarting streams for new credential", this);
     RestartNetwork();
   }
 }

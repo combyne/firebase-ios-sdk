@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import FirebaseFirestore
+@_exported import class FirebaseCore.Timestamp
 
 /// A type that can initialize itself from a Firestore Timestamp, which makes
 /// it suitable for use with the `@ServerTimestamp` property wrapper.
@@ -88,13 +88,13 @@ public struct ServerTimestamp<Value>: Codable
     if container.decodeNil() {
       value = nil
     } else {
-      value = try Value.wrap(try container.decode(Timestamp.self))
+      value = try Value.wrap(container.decode(Timestamp.self))
     }
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
-    if let value = value {
+    if let value {
       try container.encode(Value.unwrap(value))
     } else {
       try container.encode(FieldValue.serverTimestamp())
@@ -105,3 +105,5 @@ public struct ServerTimestamp<Value>: Codable
 extension ServerTimestamp: Equatable where Value: Equatable {}
 
 extension ServerTimestamp: Hashable where Value: Hashable {}
+
+extension ServerTimestamp: Sendable where Value: Sendable {}

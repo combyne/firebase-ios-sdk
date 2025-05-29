@@ -21,20 +21,30 @@
 @property(nonatomic, copy) NSString *installationID;
 @property(nonatomic, strong) NSError *error;
 
+// the init function is not public for the token result, use as a placeholder to mock the token
+// completion block
+@property(nonatomic, strong) FIRInstallationsAuthTokenResult *tokenResult;
+
+@property(nonatomic) BOOL authTokenFinished;
+@property(nonatomic) BOOL installationIDFinished;
+
 @end
 
 @implementation FIRMockInstallationsImpl
 
+- (void)authTokenWithCompletion:(FIRInstallationsTokenHandler)completion {
+  self.authTokenFinished = true;
+  completion(self.tokenResult, self.error);
+}
+
 - (void)installationIDWithCompletion:(FIRInstallationsIDHandler)completion {
+  self.installationIDFinished = true;
   completion(self.installationID, self.error);
 }
 
 @end
 
 @interface FIRMockInstallations ()
-
-@property(nonatomic, copy) NSString *instanceID;
-@property(nonatomic, strong) NSError *error;
 
 @end
 
@@ -44,6 +54,8 @@
   FIRMockInstallationsImpl *mock = [[FIRMockInstallationsImpl alloc] init];
   mock.installationID = [installationID copy];
   mock.error = nil;
+  mock.authTokenFinished = false;
+  mock.installationIDFinished = false;
   self = (id)mock;
   return self;
 }
@@ -52,6 +64,8 @@
   FIRMockInstallationsImpl *mock = [[FIRMockInstallationsImpl alloc] init];
   mock.installationID = nil;
   mock.error = error;
+  mock.authTokenFinished = false;
+  mock.installationIDFinished = false;
   self = (id)mock;
   return self;
 }

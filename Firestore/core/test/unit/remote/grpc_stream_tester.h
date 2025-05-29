@@ -18,7 +18,7 @@
 #define FIRESTORE_CORE_TEST_UNIT_REMOTE_GRPC_STREAM_TESTER_H_
 
 #include <functional>
-#include <future>  // NOLINT(build/c++11)
+#include <future>
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -151,7 +151,7 @@ class GrpcStreamTester {
    * a different `GrpcCompletion::Type` than the corresponding result, this
    * function will fail.
    *
-   * This is a blocking function; it will finish quickly if the the gRPC
+   * This is a blocking function; it will finish quickly if the gRPC
    * completion queue has at least as many pending completions as there are
    * elements in `results`; otherwise, it will hang.
    *

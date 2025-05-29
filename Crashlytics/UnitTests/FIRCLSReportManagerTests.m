@@ -15,13 +15,15 @@
 #import <Foundation/Foundation.h>
 #import <XCTest/XCTest.h>
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 #if __has_include(<FBLPromises/FBLPromises.h>)
 #import <FBLPromises/FBLPromises.h>
 #else
 #import "FBLPromises.h"
 #endif
+
+#import "FBLPromise+Testing.h"
 
 #include "Crashlytics/Crashlytics/Components/FIRCLSContext.h"
 #include "Crashlytics/Crashlytics/Components/FIRCLSCrashedMarkerFile.h"
@@ -78,6 +80,11 @@
 
   self.fileManager = [[FIRCLSTempMockFileManager alloc] init];
 
+  // Cleanup potential artifacts from other test files.
+  if ([[NSFileManager defaultManager] fileExistsAtPath:[self.fileManager rootPath]]) {
+    assert([self.fileManager removeItemAtPath:[self.fileManager rootPath]]);
+  }
+
   // Delete cached settings
   [self.fileManager removeItemAtPath:_fileManager.settingsFilePath];
 
@@ -89,6 +96,9 @@
   self.mockSettings = [[FIRCLSMockSettings alloc] initWithFileManager:self.fileManager
                                                            appIDModel:self.appIDModel];
 
+  // Allow nil values only in tests
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
   FIRCLSManagerData *managerData =
       [[FIRCLSManagerData alloc] initWithGoogleAppID:TEST_GOOGLE_APP_ID
                                      googleTransport:mockGoogleTransport
@@ -96,7 +106,9 @@
                                            analytics:nil
                                          fileManager:self.fileManager
                                          dataArbiter:self.dataArbiter
-                                            settings:self.mockSettings];
+                                            settings:self.mockSettings
+                                       onDemandModel:nil];
+#pragma clang diagnostic pop
 
   self.mockReportUploader = [[FIRCLSMockReportUploader alloc] initWithManagerData:managerData];
 
@@ -125,7 +137,13 @@
 
 #pragma mark - Path Helpers
 - (NSString *)resourcePath {
-  return [[NSBundle bundleForClass:[self class]] resourcePath];
+#if SWIFT_PACKAGE
+  NSBundle *bundle = SWIFTPM_MODULE_BUNDLE;
+  return [bundle.resourcePath stringByAppendingPathComponent:@"Data"];
+#else
+  NSBundle *bundle = [NSBundle bundleForClass:[self class]];
+  return bundle.resourcePath;
+#endif
 }
 
 - (NSArray *)contentsOfActivePath {
@@ -184,18 +202,11 @@
 
 #pragma mark - File/Directory Handling
 - (void)testCreatesNewReportOnStart {
-  FBLPromise<NSNumber *> *promise = [self->_reportManager startWithProfilingMark:0];
+  FBLPromise<NSNumber *> *promise = [self->_reportManager startWithProfiling];
+  FBLWaitForPromisesWithTimeout(1.0);
 
-  XCTestExpectation *expectation =
-      [[XCTestExpectation alloc] initWithDescription:@"waiting on promise"];
-  [promise then:^id _Nullable(NSNumber *_Nullable value) {
-    XCTAssertTrue([value boolValue]);
-    XCTAssertEqual([[self contentsOfActivePath] count], 1);
-    [expectation fulfill];
-    return value;
-  }];
-
-  [self waitForExpectations:@[ expectation ] timeout:1.0];
+  XCTAssertTrue([promise.value boolValue]);
+  XCTAssertEqual([[self contentsOfActivePath] count], 1);
 }
 
 - (void)waitForPromise:(FBLPromise<NSNumber *> *)promise {
@@ -228,7 +239,7 @@
 
 - (FBLPromise<NSNumber *> *)startReportManagerWithDataCollectionEnabled:(BOOL)enabled {
   [self.dataArbiter setCrashlyticsCollectionEnabled:enabled];
-  return [self.reportManager startWithProfilingMark:0];
+  return [self.reportManager startWithProfiling];
 }
 
 - (void)processReports:(BOOL)send andExpectReports:(BOOL)reportsExpected {
@@ -298,10 +309,11 @@
 
 - (void)testExistingUnimportantReportOnStartWithDataCollectionDisabled {
   // create a report and put it in place
-  [self createActiveReport];
+  XCTAssertNotNil([self createActiveReport]);
 
   // Starting with data collection disabled should report in nothing changing
   [self startReportManagerWithDataCollectionEnabled:NO];
+  FBLWaitForPromisesWithTimeout(1.0);
 
   XCTAssertEqual([[self contentsOfActivePath] count], 1);
 

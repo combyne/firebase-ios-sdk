@@ -18,7 +18,6 @@
 
 #import <OCMock/OCMock.h>
 
-// This needs to precede the GULSwizzler+Unswizzle.h import for the --use-libraries build.
 #import <GoogleUtilities/GULSwizzler.h>
 
 #import <GoogleUtilities/GULSwizzler+Unswizzle.h>
@@ -27,7 +26,7 @@
 static NSString *const kAPIKey = @"myfakeapikey";
 const NSInteger kJSONParsingErrorCode = 3840;
 static NSString *const kURLScheme = @"gindeeplinkurl";
-static const NSTimeInterval kAsyncTestTimout = 0.5;
+static const NSTimeInterval kAsyncTestTimeout = 5.0;
 
 @interface FIRDynamicLinkNetworkingTests : XCTestCase
 
@@ -91,7 +90,7 @@ static const NSTimeInterval kAsyncTestTimout = 0.5;
                         [expectation fulfill];
                       }];
 
-  [self waitForExpectationsWithTimeout:kAsyncTestTimout handler:nil];
+  [self waitForExpectationsWithTimeout:kAsyncTestTimeout handler:nil];
 
   [GULSwizzler unswizzleClass:[FIRDynamicLinkNetworking class]
                      selector:executeRequestSelector

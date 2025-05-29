@@ -33,7 +33,7 @@
 - (void)setUp {
   [super setUp];
 
-  _firclsContext.readonly = malloc(sizeof(FIRCLSReadOnlyContext));
+  _firclsContext.readonly = calloc(1, sizeof(FIRCLSReadOnlyContext));
   _firclsContext.readonly->logPath = "/tmp/test.log";
 }
 
@@ -42,7 +42,13 @@
 }
 
 - (NSString*)resourcePath {
-  return [[NSBundle bundleForClass:[self class]] resourcePath];
+#if SWIFT_PACKAGE
+  NSBundle* bundle = SWIFTPM_MODULE_BUNDLE;
+  return [bundle.resourcePath stringByAppendingPathComponent:@"Data"];
+#else
+  NSBundle *bundle = [NSBundle bundleForClass:[self class]];
+  return bundle.resourcePath;
+#endif
 }
 
 - (NSString*)pathForResource:(NSString*)name {

@@ -19,12 +19,10 @@
 
 #include <cstdint>
 #include <ctime>
+
+#include <chrono>
 #include <iosfwd>
 #include <string>
-
-#if !defined(_STLPORT_VERSION)
-#include <chrono>  // NOLINT(build/c++11)
-#endif             // !defined(_STLPORT_VERSION)
 
 namespace firebase {
 
@@ -38,7 +36,7 @@ namespace firebase {
  * from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
  *
  * @see
- * https://github.com/google/protobuf/blob/master/src/google/protobuf/timestamp.proto
+ * https://github.com/google/protobuf/blob/main/src/google/protobuf/timestamp.proto
  */
 class Timestamp {
  public:
@@ -104,38 +102,31 @@ class Timestamp {
    * Converts `time_t` to a `Timestamp`.
    *
    * @param seconds_since_unix_epoch
-   *     @parblock
    *     The number of seconds of UTC time since Unix epoch
    *     1970-01-01T00:00:00Z. Can be negative to represent dates before the
    *     epoch. Must be from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z
    *     inclusive; otherwise, assertion failure will be triggered.
-   *
    *     Note that while the epoch of `time_t` is unspecified, it's usually Unix
    *     epoch. If this assumption is broken, this function will produce
    *     incorrect results.
-   *     @endparblock
    *
    * @return a new timestamp with the given number of seconds and zero
    *     nanoseconds.
    */
   static Timestamp FromTimeT(time_t seconds_since_unix_epoch);
 
-#if !defined(_STLPORT_VERSION)
   /**
    * Converts `std::chrono::time_point` to a `Timestamp`.
    *
    * @param time_point
-   *     @parblock
    *     The time point with system clock's epoch, which is
    *     presumed to be Unix epoch 1970-01-01T00:00:00Z. Can be negative to
    *     represent dates before the epoch. Must be from 0001-01-01T00:00:00Z to
    *     9999-12-31T23:59:59Z inclusive; otherwise, assertion failure will be
    *     triggered.
-   *
    *     Note that while the epoch of `std::chrono::system_clock` is
    *     unspecified, it's usually Unix epoch. If this assumption is broken,
    *     this constructor will produce incorrect results.
-   *     @endparblock
    */
   static Timestamp FromTimePoint(
       std::chrono::time_point<std::chrono::system_clock> time_point);
@@ -151,7 +142,6 @@ class Timestamp {
   template <typename Clock = std::chrono::system_clock,
             typename Duration = std::chrono::microseconds>
   std::chrono::time_point<Clock, Duration> ToTimePoint() const;
-#endif  // !defined(_STLPORT_VERSION)
 
   /**
    * Returns a string representation of this `Timestamp` for logging/debugging
@@ -211,8 +201,6 @@ inline bool operator==(const Timestamp& lhs, const Timestamp& rhs) {
   return !(lhs != rhs);
 }
 
-#if !defined(_STLPORT_VERSION)
-
 // Make sure the header compiles even when included after `<windows.h>` without
 // `NOMINMAX` defined. `push/pop_macro` pragmas are supported by Visual Studio
 // as well as Clang and GCC.
@@ -244,8 +232,6 @@ std::chrono::time_point<Clock, Duration> Timestamp::ToTimePoint() const {
 
 #pragma pop_macro("max")
 #pragma pop_macro("min")
-
-#endif  // !defined(_STLPORT_VERSION)
 
 }  // namespace firebase
 

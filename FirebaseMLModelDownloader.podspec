@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'FirebaseMLModelDownloader'
-  s.version          = '8.10.0-beta'
+  s.version          = '11.14.0-beta'
   s.summary          = 'Firebase ML Model Downloader'
 
   s.description      = <<-DESC
@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
                        DESC
 
   s.homepage         = 'https://firebase.google.com'
-  s.license          = { :type => 'Apache', :file => 'LICENSE' }
+  s.license          = { :type => 'Apache-2.0', :file => 'LICENSE' }
   s.authors          = 'Google, Inc.'
 
   s.source           = {
@@ -16,19 +16,19 @@ Pod::Spec.new do |s|
     :tag => 'CocoaPods-' + s.version.to_s
   }
   s.social_media_url = 'https://twitter.com/Firebase'
-  s.swift_version = '5.0'
+  s.swift_version = '5.9'
 
-  ios_deployment_target = '10.0'
-  osx_deployment_target = '10.12'
-  tvos_deployment_target = '10.0'
-  watchos_deployment_target = '6.0'
+  ios_deployment_target = '13.0'
+  osx_deployment_target = '10.15'
+  tvos_deployment_target = '13.0'
+  watchos_deployment_target = '7.0'
 
   s.ios.deployment_target = ios_deployment_target
   s.osx.deployment_target = osx_deployment_target
   s.tvos.deployment_target = tvos_deployment_target
   s.watchos.deployment_target = watchos_deployment_target
 
-  s.cocoapods_version = '>= 1.4.0'
+  s.cocoapods_version = '>= 1.12.0'
   s.prefix_header_file = false
 
   s.source_files = [
@@ -36,12 +36,12 @@ Pod::Spec.new do |s|
   ]
 
   s.framework = 'Foundation'
-  s.dependency 'FirebaseCore', '~> 8.0'
-  s.dependency 'FirebaseInstallations', '~> 8.0'
-  s.dependency 'GoogleDataTransport', '~> 9.1'
-  # TODO: Revisit this dependency
-  s.dependency 'GoogleUtilities/Logger', '~> 7.6'
-  s.dependency 'SwiftProtobuf', '~> 1.0'
+  s.dependency 'FirebaseCore', '~> 11.14.0'
+  s.dependency 'FirebaseCoreExtension', '~> 11.14.0'
+  s.dependency 'FirebaseInstallations', '~> 11.0'
+  s.dependency 'GoogleDataTransport', '~> 10.0'
+  s.dependency 'GoogleUtilities/UserDefaults', '~> 8.1'
+  s.dependency 'SwiftProtobuf', '~> 1.19'
 
   s.pod_target_xcconfig = {
     'GCC_C_LANGUAGE_STANDARD' => 'c99',

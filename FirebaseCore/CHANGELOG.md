@@ -1,8 +1,253 @@
+# Firebase 11.12.0
+- [changed] Firebase now requires at least Xcode 16.2. See
+  https://developer.apple.com/news/?id=9s0rgdy9 for more info.
+
+# Firebase 11.8.0
+- [deprecated] The zip and Carthage distributions of the Google Mobile Ads SDK
+  with Firebase are deprecated and will be removed in the next major release.
+  Instead, the Google Mobile Ads SDK binary distribution should be accessed
+  from https://developers.google.com/admob/ios/download. Note that
+  _any existing versions of the Firebase zip or Carthage distributions will
+  continue to be available and functional_. Learn more about this change
+  in our FAQ: https://firebase.google.com/support/faq/#admob-which-sdk. (#14408)
+
+# Firebase 11.4.2
+- [fixed] CocoaPods only release to fix iOS 12 build failure resulting from
+  incomplete implementation in the FirebaseCoreInternal CocoaPod.
+
+# Firebase 11.4.1
+- [fixed] CocoaPods only release to revert breaking change in
+  `FirebaseCoreExtension` SDK. (#13942)
+
+# Firebase 11.4.0
+- [fixed] Fixed issue building documentation with some Firebase products. (#13756)
+
+# Firebase 11.0.0
+- [changed] **Breaking change**: Firebase's minimum supported versions have
+  updated for the following platforms:
+    - | Platform  | Firebase 11 |
+      | ------------- | ------------- |
+      | iOS  | **13.0**  |
+      | tvOS  | **13.0**  |
+      | macOS  | **10.15**  |
+      | watchOS  | 7.0  |
+  - FirebaseAnalytics and FirebaseCrashlytics also continue to support iOS 12.0.
+- [removed] **Breaking change**: The deprecated Swift extension SDKs for
+  Analytics, Firestore, Database, Remote Config and In App Messaging have
+  been removed. See
+  https://firebase.google.com/docs/ios/swift-migration for migration
+  instructions.
+- Update underlying FIRLogger implementation from `asl` to `os_log`.
+- Remove `FIRLoggerForceSTDERR` configuration option.
+- [changed] Move `Timestamp` class into `FirebaseCore`. `FirebaseFirestore.Timestamp`
+  was changed to `FirebaseCore.Timestamp`. (#13221)
+
+# Firebase 10.25.0
+- [changed] Firebase now requires at least Xcode 15.2. See
+  https://developer.apple.com/news/?id=fxu2qp7b for more info.
+- [Zip Distribution] Update zip integration instructions with tips for
+  preserving symlinks and protecting code signatures.
+
+# Firebase 10.24.0
+- Fix validation issue for macOS and macCatalyst XCFrameworks related to
+  framework directory structure. (#12587)
+- Extend community watchOS support to zip and Carthage distributions. See
+  https://firebase.google.com/docs/ios/learn-more#firebase_library_support_by_platform
+  for the Firebase products included. (#8731)
+- Add code signatures to all of Firebase's binary artifacts (#12238).
+
+# Firebase 10.23.1
+- [Swift Package Manager / CocoaPods] Fixes the macOS/Catalyst xcframework
+  structure issue in Firebase Analytics blocking submission via Xcode 15.3.
+
+# Firebase 10.23.0
+- Fix validation issue for macOS and macCatalyst XCFrameworks. (#12505)
+
+# Firebase 10.22.1
+- [Swift Package Manager / CocoaPods] Fix app validation issues on Xcode 15.3
+  for those using the `FirebaseAnalyticsOnDeviceConversion` SDK. This issue was
+  caused by embedding an incomplete `Info.plist` from a dependency of the SDK.
+  (#12441)
+
+# Firebase 10.22.0
+- [Swift Package Manager] Firebase now enforces a Swift 5.7.1 minimum version,
+  which is aligned with the Xcode 14.1 minimum. (#12350)
+- Revert Firebase 10.20.0 change that removed `Info.plist` files from
+  static xcframeworks (#12390).
+- Added privacy manifests for Firebase SDKs named in
+  https://developer.apple.com/support/third-party-SDK-requirements/. Please
+  review https://firebase.google.com/docs/ios/app-store-data-collection for
+  updated guidance on interpreting Firebase's privacy manifests and completing
+  app Privacy Nutrition Labels. (#11490)
+- Fixed validation issues in Xcode 15.3 that affected binary distributions
+  including Analytics, Firestore (SwiftPM binary distribution), and the
+  Firebase zip distribution. (#12441)
+- [Zip Distribution] The manual integration instructions found in the
+  `Firebase.zip` have been updated for Xcode 15 users. The updated instructions
+  call for embedding SDKs dragged in from the `Firebase.zip`. This will enable
+  Xcode's tooling to detect privacy manifests bundled within the xcframework.
+- [Zip Distribution] Several xcframeworks have been renamed to resolve the above
+  Xcode 15.3 validation issues. Please ensure that the following renamed
+  xcframeworks are removed from your project when upgrading (#12437, #12447):
+    - `abseil.xcframework` to `absl.xcframework`
+    - `BoringSSL-GRPC.xcframework` to `openssl_grpc.xcframework`
+    - `gRPC-Core.xcframework` to `grpc.xcframework`
+    - `gRPC-C++.xcframework` to `grpcpp.xcframework`
+    - `leveldb-library.xcframework` to `leveldb.xcframework`
+    - `PromisesSwift.xcframework` to `Promises.xcframework`
+
+# Firebase 10.21.0
+- Firebase now requires at least CocoaPods version 1.12.0 to enable privacy
+  manifest support.
+
+# Firebase 10.20.0
+- The following change only applies to those using a binary distribution of
+  a Firebase SDK(s): In preparation for supporting Privacy Manifests, each
+  platform framework directory within a static xcframework no longer contains
+  an `Info.plist` file (#12243).
+
+# Firebase 10.14.0
+- For developers building for visionOS, Xcode 15 beta 6 or later is required.
+
+# Firebase 10.13.0
+- For developers building for visionOS, Xcode 15 beta 5 or later is required.
+
+# Firebase 10.12.0
+- For developers building for visionOS, using products that use the Keychain
+  (e.g. FirebaseAuth) may fail to access the keychain on the visionOS
+  simulator. To work around this, add the Keychain Sharing capability to the
+  visionOS target and explicitly add a keychain group (e.g. the bundle ID).
+- Firebase's Swift Package Manager distribution does not support
+  Xcode 15 Beta 1. Please use Xcode 15 Beta 2 or later.
+
+# Firebase 10.11.0
+- [changed] Improved error reporting for misnamed configuration plist files (#11317).
+
+# Firebase 10.10.0
+- [changed] Firebase now requires at least Xcode 14.1.
+
+# Firebase 10.8.1
+- [fixed] Swift Package Manager only release to fix a 10.8.0 Firestore issue
+  impacting macCatalyst. (#11119)
+
+# Firebase 10.8.0
+- Fix new build warnings introduced by Xcode 14.3. (#11059)
+- [changed] The Firebase Swift package now requires the Swift 5.6 toolchain (Xcode 13.3) to build.
+
+# Firebase 10.4.0
+- Deprecate `androidClientID` and `trackingID` from FirebaseOptions. (#10520)
+
+# Firebase 10.2.0
+- Update GTMSessionFetcher dependency specifications to enable support for the compatible
+  GTMSessionFetcher 3.x versions.
+
+# Firebase 10.1.0
+- [changed] Bitcode is no longer included in Firebase binary distributions. Xcode 14 does not
+  support bitcode. tvOS apps using a Firebase binary distribution will now need to use
+  Xcode 14. (#10372)
+
+# Firebase 10.0.0
+- [changed] **Breaking change**: Firebase's minimum supported versions have
+  updated for the following platforms:
+  - If using **CocoaPods**:
+    - | Platform  | Firebase 9 | Firebase 10 |
+      | ------------- | ------------- | ------------- |
+      | iOS  | 10.0  | **11.0**  |
+      | tvOS  | 10.0  | **12.0**  |
+      | macOS  | 10.12  | **10.13**  |
+      | watchOS  | 6.0  | 6.0  |
+  - If using **Swift Package Manager**:
+    - | Platform  | Firebase 9 | Firebase 10 |
+      | ------------- | ------------- | ------------- |
+      | iOS  | 11.0  | 11.0  |
+      | tvOS  | 12.0  | 12.0  |
+      | macOS  | 10.12  | **10.13**  |
+      | watchOS  | 7.0  | 7.0  |
+  - If using **Carthage** or the **Zip** distribution:
+    - | Platform  | Firebase 9 | Firebase 10 |
+      | ------------- | ------------- | ------------- |
+      | iOS  | 11.0  | 11.0  |
+      | tvOS  | 11.0  | **12.0**  |
+      | macOS  | 10.13  | 10.13  |
+      | watchOS  | N/A  | N/A  |
+- [changed] **Breaking change**: Update dependency specification for
+  GTMSessionFetcher to allow all versions that are >= 2.1 and < 3.0. (#10131)
+
+# Firebase 9.6.0
+- [fixed] Mac apps using Firebase products that store SDK data in the keychain
+  will no longer prompt the user for permission to access the keychain. This
+  requires that Mac apps using Firebase be signed with a provisioning profile
+  that has the Keychain Sharing capability enabled. (#9392)
+- [fixed] Fixed `Array.Index`-related compile time errors when building with older Swift versions. (#10171)
+- [fixed] Update dependency specification for GTMSessionFetcher to allow all 2.x versions. (#10131)
+
+# Firebase 9.5.0
+- [fixed] Zip Distribution Fixed Promises module name issue impacting lld builds. (#10071)
+- [fixed] Limit dependency GTMSessionFetcher version update to < 2.1.0 to avoid a new deprecation
+  warning. (#10123)
+
+# Firebase 9.4.1
+- [fixed] Swift Package Manager only release to fix a 9.4.0 tagging issue impacting some users. (#10083)
+
+# Firebase 9.4.0
+- [fixed] Fixed rare crash on launch due to out-of-bounds exception in FirebaseCore. (#10025)
+
+# Firebase 9.3.0
+- [changed] Discontinue bitcode inclusion in all binary distributions.
+- [fixed] Remove GoogleSignInSwiftSupport from Zip and Carthage distributions due to
+  infeasibility. The GoogleSignIn distribution continues. (#9937)
+
+# Firebase 9.2.0
+- [added] Zip and Carthage distributions now include GoogleSignInSwiftSupport. (#9900)
+
+# Firebase 9.0.0
+- [changed] Firebase now requires at least Xcode 13.3.1.
+- [deprecated] Usage of the Firebase pod, the Firebase module (`import Firebase`), and `Firebase.h`
+  is deprecated. Use the specific Firebase product instead like: `pod 'FirebaseMessaging'` and
+  `import FirebaseMessaging`.
+
+## CocoaPods Users
+- [changed] **Breaking change**: Podfiles must include `use_frameworks!` or
+  `use_frameworks! :linkage => :static`.
+- [changed] Objective-C only apps using `use_frameworks! :linkage => :static` may need to add a
+  dummy Swift file to their project to avoid linker issues.
+- [changed] C++/Objective-C++ clients should use `#import <FirebaseFunctions/FirebaseFunctions-Swift.h>`
+  and `#import <FirebaseStorage/FirebaseStorage-Swift.h>` to access Functions and Storage APIs,
+  respectively.
+- [changed] Beta Swift pods (except `FirebaseInAppMessagingSwift-Beta`) have exited beta and
+  are now generally available. The `-beta` version suffix is no longer required. These should
+  be removed from your Podfile, and any `import` statements should be changed accordingly.
+- [changed] The `FirebaseStorageSwift` and `FirebaseFunctionsSwift` have been merged into
+  `FirebaseStorage` and `FirebaseFunctions` respectively and should be removed from your Podfile.
+
+## Swift Package Manager Users
+- [changed] `import Firebase` will no longer implicitly
+  import Firebase Storage and Firebase Functions APIs. Use `import FirebaseStorage` and
+  `import FirebaseFunctions`, respectively. C++/Objective-C++ clients should find alternative
+  workarounds at https://forums.swift.org/t/importing-swift-libraries-from-objective-c/56730.
+- [changed] Beta Swift libraries (except `FirebaseInAppMessagingSwift-Beta`) have exited beta
+  and are now generally available. When upgrading a project that includes one or more of these
+  libraries, an error like `Missing package product 'FirebaseSwift-Beta'` will appear. In your
+  project's settings, go to "General" and scroll down to `Frameworks, Libraries, and Embedded
+  Content`. Select the missing package, and remove it. Then, click the `+` button to add the
+  associated library without the `-Beta` suffix. Any `import` statements in your project
+  should be changed accordingly.
+- [changed] The `FirebaseStorageSwift-Beta` and `FirebaseFunctionsSwift-Beta` libraries have been
+  merged into `FirebaseStorage` and `FirebaseFunctions` respectively and should be removed from your
+  project following the instructions above.
+
+## Zip and Carthage Users
+- [changed] **Breaking change**: Update the minimum supported versions for the zip and Carthage
+  distributions to iOS 11.0, tvOS 11.0 and macOS 10.13. (#9633)
+- [added] The zip and Carthage distributions now include the Swift extension frameworks. (#7819)
+- [changed] Zip file installation instructions have changed. Please see the README embedded in
+  the zip file for updated instructions.
+
 # Firebase 8.10.0
 - [fixed] Fixed platform availability checks in Swift Package Manager that may prevent code
   completion for Analytics APIs on macOS and tvOS. (#9032)
 - [added] Firebase now includes community supported Combine publishers. More details can be found
-  [here](https://github.com/firebase/firebase-ios-sdk/blob/master/FirebaseCombineSwift/README.md). (#7295)
+  [here](https://github.com/firebase/firebase-ios-sdk/blob/main/FirebaseCombineSwift/README.md). (#7295)
 
 # Firebase 8.9.0
 - [added] Firebase introduces beta support for tvOS, macOS, and Catalyst.
@@ -129,7 +374,7 @@
 
 # Firebase 6.31.0 FirebaseCore 6.10.1 -- M78
 - [added] Beta release of Swift Package Manager. Details
-  [here](https://github.com/firebase/firebase-ios-sdk/blob/master/SwiftPackageManager.md). (#3136)
+  [here](https://github.com/firebase/firebase-ios-sdk/blob/main/SwiftPackageManager.md). (#3136)
 - [changed] Firebase's dependencies on nanopb are updated from version 0.3.9.5 to
   version 0.3.9.6 (1.30906.0 in CocoaPods).
 
@@ -163,7 +408,7 @@
 - [fixed] Fixed Carthage installation failures involving `Protobuf.framework`.
   `Protobuf.framework` is now separately installable via adding
   `FirebaseProtobufBinary.json` to the Cartfile. Full details in the [Carthage usage
-  instructions](https://github.com/firebase/firebase-ios-sdk/blob/master/Carthage.md#carthage-usage).
+  instructions](https://github.com/firebase/firebase-ios-sdk/blob/main/Carthage.md#carthage-usage).
   (#5276)
 
 # v6.6.6 -- M68
@@ -266,7 +511,7 @@ The Firebase Installations SDK introduces the [Firebase Installations API](https
 
 # 2019-04-02 -- v5.4.1 -- M46
 - [changed] Avoid using NSRegularExpression in FIRApp.
-- [changed] Improve error meessage for invalid app names. (#2614)
+- [changed] Improve error message for invalid app names. (#2614)
 - [changed] FIRApp thread safety fixes. (#2639)
 
 # 2019-03-19 -- v5.4.0 -- M45

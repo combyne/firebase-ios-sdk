@@ -89,7 +89,8 @@ bool QueryListener::OnViewSnapshot(ViewSnapshot snapshot) {
                             snapshot.mutated_keys(),
                             snapshot.from_cache(),
                             snapshot.sync_state_changed(),
-                            /*excludes_metadata_changes=*/true};
+                            /*excludes_metadata_changes=*/true,
+                            snapshot.has_cached_results()};
   }
 
   if (!raised_initial_event_) {
@@ -111,7 +112,7 @@ void QueryListener::OnError(Status error) {
 }
 
 /**
- * Returns whether a snaphsot was raised.
+ * Returns whether a snapshot was raised.
  */
 bool QueryListener::OnOnlineStateChanged(OnlineState online_state) {
   online_state_ = online_state;
@@ -135,6 +136,11 @@ bool QueryListener::ShouldRaiseInitialEvent(const ViewSnapshot& snapshot,
     return true;
   }
 
+  // Always raise first event if listening to cache
+  if (!listens_to_remote_store()) {
+    return true;
+  }
+
   // NOTE: We consider OnlineState::Unknown as online (it should become Offline
   // or Online if we wait long enough).
   bool maybe_online = online_state != OnlineState::Offline;
@@ -147,8 +153,10 @@ bool QueryListener::ShouldRaiseInitialEvent(const ViewSnapshot& snapshot,
     return false;
   }
 
-  // Raise data from cache if we have any documents or we are offline
-  return !snapshot.documents().empty() || online_state == OnlineState::Offline;
+  // Raise data from cache if we have any documents, have cached results before,
+  // or we are offline.
+  return !snapshot.documents().empty() || snapshot.has_cached_results() ||
+         online_state == OnlineState::Offline;
 }
 
 bool QueryListener::ShouldRaiseEvent(const ViewSnapshot& snapshot) const {
@@ -178,7 +186,8 @@ void QueryListener::RaiseInitialEvent(const ViewSnapshot& snapshot) {
 
   ViewSnapshot modified_snapshot = ViewSnapshot::FromInitialDocuments(
       snapshot.query(), snapshot.documents(), snapshot.mutated_keys(),
-      snapshot.from_cache(), snapshot.excludes_metadata_changes());
+      snapshot.from_cache(), snapshot.excludes_metadata_changes(),
+      snapshot.has_cached_results());
   raised_initial_event_ = true;
   listener_->OnEvent(std::move(modified_snapshot));
 }

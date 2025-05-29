@@ -34,9 +34,6 @@ function apt_install() {
 
 function install_xcpretty() {
   gem install xcpretty
-  if [[ -n "${TRAVIS:-}" ]]; then
-    gem install xcpretty-travis-formatter
-  fi
 }
 
 # Default values, if not supplied on the command line or environment
@@ -74,12 +71,6 @@ case "$project-$platform-$method" in
     bundle exec pod install --project-directory=CoreOnly/Tests/FirebasePodTest --repo-update
     ;;
 
-  Auth-*)
-    # Install the workspace for integration testing.
-    install_xcpretty
-    bundle exec pod install --project-directory=FirebaseAuth/Tests/Sample --repo-update
-    ;;
-
   Crashlytics-*)
     ;;
 
@@ -113,7 +104,13 @@ case "$project-$platform-$method" in
     ;;
 
   Firestore-iOS-cmake | Firestore-tvOS-cmake | Firestore-macOS-cmake)
-    brew outdated cmake || brew upgrade cmake
+    # Only skip upgrade when explicitly ask for
+    if [[ "${USE_LATEST_CMAKE:-true}" == "true" ]]; then
+      echo "Use latest CMake because USE_LATEST_CMAKE=true"
+      brew outdated cmake || brew upgrade cmake
+    else
+      echo "Skipping CMake upgrade"
+    fi
     brew outdated go || brew upgrade go # Somehow the build for Abseil requires this.
     brew install ccache
     brew install ninja
@@ -142,6 +139,16 @@ case "$project-$platform-$method" in
     bundle exec pod install --project-directory=FirebaseMessaging/Apps/Sample --repo-update
     ;;
 
+  SwiftUISample-*)
+    install_xcpretty
+    bundle exec pod install --project-directory=FirebaseMessaging/Apps/SwiftUISample --repo-update
+    ;;
+
+  MessagingSampleStandaloneWatchApp-*)
+    install_xcpretty
+    bundle exec pod install --project-directory=FirebaseMessaging/Apps/SampleStandaloneWatchApp --repo-update
+    ;;
+
   MLModelDownloaderSample-*)
     install_xcpretty
     bundle exec pod install --project-directory=FirebaseMLModelDownloader/Apps/Sample --repo-update
@@ -150,11 +157,6 @@ case "$project-$platform-$method" in
   RemoteConfigSample-*)
     install_xcpretty
     bundle exec pod install --project-directory=FirebaseRemoteConfig/Tests/Sample --repo-update
-    ;;
-
-  SegmentationSample-*)
-    install_xcpretty
-    bundle exec pod install --project-directory=FirebaseSegmentation/Tests/Sample --repo-update
     ;;
 
   WatchOSSample-*)
@@ -166,6 +168,11 @@ case "$project-$platform-$method" in
     install_xcpretty
     bundle exec pod install --project-directory=GoogleDataTransport/GDTWatchOSTestApp/ --repo-update
     bundle exec pod install --project-directory=GoogleDataTransport/GDTCCTWatchOSTestApp/
+    ;;
+
+  ClientApp-iOS-xcodebuild)
+    install_xcpretty
+    bundle exec pod install --project-directory=IntegrationTesting/ClientApp/ --repo-update
     ;;
 
   *-pod-lib-lint)

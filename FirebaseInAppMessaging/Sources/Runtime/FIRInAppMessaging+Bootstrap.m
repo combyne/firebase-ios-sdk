@@ -15,12 +15,12 @@
  */
 
 #import <TargetConditionals.h>
-#if TARGET_OS_IOS || TARGET_OS_TV
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
 
 #import "FirebaseInAppMessaging/Sources/Private/Runtime/FIRInAppMessaging+Bootstrap.h"
 
 #import <GoogleUtilities/GULAppEnvironmentUtil.h>
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "Interop/Analytics/Public/FIRAnalyticsInterop.h"
 
 #import "FirebaseInAppMessaging/Sources/FIRCore+InAppMessaging.h"
@@ -28,6 +28,7 @@
 #import "FirebaseInAppMessaging/Sources/Private/Runtime/FIRIAMRuntimeManager.h"
 #import "FirebaseInAppMessaging/Sources/Private/Runtime/FIRIAMSDKSettings.h"
 #import "FirebaseInAppMessaging/Sources/Private/Util/NSString+FIRInterlaceStrings.h"
+#import "FirebaseInAppMessaging/Sources/Public/FirebaseInAppMessaging/FIRInAppMessagingErrors.h"
 
 @implementation FIRInAppMessaging (Bootstrap)
 
@@ -57,7 +58,7 @@ static NSString *_fiamServerHostName = @"firebaseinappmessaging.googleapis.com";
 
   if (!options.GCMSenderID.length) {
     error =
-        [NSError errorWithDomain:kFirebaseInAppMessagingErrorDomain
+        [NSError errorWithDomain:FIRInAppMessagingErrorDomain
                             code:0
                         userInfo:@{
                           NSLocalizedDescriptionKey : @"Google Sender ID must not be nil or empty."
@@ -68,7 +69,7 @@ static NSString *_fiamServerHostName = @"firebaseinappmessaging.googleapis.com";
 
   if (!options.APIKey.length) {
     error = [NSError
-        errorWithDomain:kFirebaseInAppMessagingErrorDomain
+        errorWithDomain:FIRInAppMessagingErrorDomain
                    code:0
                userInfo:@{NSLocalizedDescriptionKey : @"API key must not be nil or empty."}];
 
@@ -77,7 +78,7 @@ static NSString *_fiamServerHostName = @"firebaseinappmessaging.googleapis.com";
 
   if (!options.googleAppID.length) {
     error =
-        [NSError errorWithDomain:kFirebaseInAppMessagingErrorDomain
+        [NSError errorWithDomain:FIRInAppMessagingErrorDomain
                             code:0
                         userInfo:@{NSLocalizedDescriptionKey : @"Google App ID must not be nil."}];
     [self exitAppWithFatalError:error];
@@ -130,10 +131,14 @@ static NSString *_fiamServerHostName = @"firebaseinappmessaging.googleapis.com";
 }
 
 + (void)exitAppWithFatalError:(NSError *)error {
-  [NSException raise:kFirebaseInAppMessagingErrorDomain
+  [NSException raise:FIRInAppMessagingErrorDomain
               format:@"Error happened %@", error.localizedDescription];
 }
 
 @end
 
-#endif  // TARGET_OS_IOS || TARGET_OS_TV
+/// Stub used to force the linker to include the categories in this file.
+void FIRInclude_FIRInAppMessaging_Bootstrap_Category(void) {
+}
+
+#endif  // TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION

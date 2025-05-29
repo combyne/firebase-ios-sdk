@@ -27,6 +27,7 @@
 #import "Firestore/Source/API/FIRFirestoreSource+Internal.h"
 #import "Firestore/Source/API/FIRListenerRegistration+Internal.h"
 #import "Firestore/Source/API/FSTUserDataReader.h"
+#import "Firestore/Source/API/converters.h"
 
 #include "Firestore/core/src/api/collection_reference.h"
 #include "Firestore/core/src/api/document_reference.h"
@@ -50,8 +51,9 @@ using firebase::firestore::api::DocumentSnapshot;
 using firebase::firestore::api::DocumentSnapshotListener;
 using firebase::firestore::api::Firestore;
 using firebase::firestore::api::ListenerRegistration;
-using firebase::firestore::api::Source;
+using firebase::firestore::api::MakeListenSource;
 using firebase::firestore::api::MakeSource;
+using firebase::firestore::api::Source;
 using firebase::firestore::core::EventListener;
 using firebase::firestore::core::ListenOptions;
 using firebase::firestore::core::ParsedSetData;
@@ -61,7 +63,6 @@ using firebase::firestore::model::ResourcePath;
 using firebase::firestore::util::MakeCallback;
 using firebase::firestore::util::MakeNSString;
 using firebase::firestore::util::MakeString;
-using firebase::firestore::util::StatusOr;
 using firebase::firestore::util::StatusOr;
 using firebase::firestore::util::StatusOrCallback;
 using firebase::firestore::util::ThrowInvalidArgument;
@@ -211,6 +212,13 @@ NS_ASSUME_NONNULL_BEGIN
                                          listener:(FIRDocumentSnapshotBlock)listener {
   ListenOptions options = ListenOptions::FromIncludeMetadataChanges(includeMetadataChanges);
   return [self addSnapshotListenerInternalWithOptions:options listener:listener];
+}
+
+- (id<FIRListenerRegistration>)addSnapshotListenerWithOptions:(FIRSnapshotListenOptions *)options
+                                                     listener:(FIRDocumentSnapshotBlock)listener {
+  ListenOptions listenOptions =
+      ListenOptions::FromOptions(options.includeMetadataChanges, MakeListenSource(options.source));
+  return [self addSnapshotListenerInternalWithOptions:listenOptions listener:listener];
 }
 
 - (id<FIRListenerRegistration>)addSnapshotListenerInternalWithOptions:(ListenOptions)internalOptions

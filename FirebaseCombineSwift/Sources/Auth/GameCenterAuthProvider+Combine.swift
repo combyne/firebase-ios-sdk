@@ -12,27 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if canImport(Combine) && swift(>=5.0)
+#if canImport(Combine) && !os(watchOS)
 
   import Combine
   import FirebaseAuth
 
   @available(swift 5.0)
   @available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, *)
-  @available(watchOS, unavailable)
-  extension GameCenterAuthProvider {
+  public extension GameCenterAuthProvider {
     /// Creates an `AuthCredential` for a Game Center sign in.
     ///
     /// The publisher will emit events on the **main** thread.
     ///
     /// - Returns: A publisher that emits an `AuthCredential` when the credential is obtained
     ///   successfully, or an error otherwise. The publisher will emit on the *main* thread.
-    public class func getCredential() -> Future<AuthCredential, Error> {
+    class func getCredential() -> Future<AuthCredential, Error> {
       Future<AuthCredential, Error> { promise in
         self.getCredential { authCredential, error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
-          } else if let authCredential = authCredential {
+          } else if let authCredential {
             promise(.success(authCredential))
           }
         }

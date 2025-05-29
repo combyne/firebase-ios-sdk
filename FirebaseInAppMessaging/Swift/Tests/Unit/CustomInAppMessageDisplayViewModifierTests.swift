@@ -15,13 +15,12 @@
 import XCTest
 
 @testable import FirebaseInAppMessaging
-@testable import FirebaseInAppMessagingSwift
 
 class DelegateBridgeTests: XCTestCase {
   var delegateBridge = DelegateBridge()
 
   func testClearsInAppMessageOnDismiss() {
-    let inAppMessage: InAppMessagingDisplayMessage = InAppMessagingDisplayMessage(
+    let inAppMessage = InAppMessagingDisplayMessage(
       messageID: "messageID",
       campaignName: "testCampaign",
       renderAsTestMessage: false,
@@ -42,7 +41,7 @@ class DelegateBridgeTests: XCTestCase {
   }
 
   func testClearsInAppMessageOnClick() {
-    let inAppMessage: InAppMessagingDisplayMessage = InAppMessagingDisplayMessage(
+    let inAppMessage = InAppMessagingDisplayMessage(
       messageID: "messageID",
       campaignName: "testCampaign",
       renderAsTestMessage: false,

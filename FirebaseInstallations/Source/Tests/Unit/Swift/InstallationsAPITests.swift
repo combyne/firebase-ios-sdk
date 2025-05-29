@@ -51,18 +51,16 @@ final class InstallationsAPITests {
       }
     }
 
-    #if compiler(>=5.5) && canImport(_Concurrency)
-      if #available(iOS 15.0, macOS 12.0, macCatalyst 15.0, tvOS 15.0, watchOS 8.0, *) {
-        // async/await is a Swift 5.5+ feature available on iOS 15+
-        Task {
-          do {
-            try await Installations.installations().installationID()
-          } catch {
-            // ...
-          }
+    if #available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, watchOS 7.0, *) {
+      // async/await is a Swift Concurrency feature available on iOS 13+ and macOS 10.15+
+      Task {
+        do {
+          try await Installations.installations().installationID()
+        } catch {
+          // ...
         }
       }
-    #endif // compiler(>=5.5) && canImport(_Concurrency)
+    }
 
     // Retrieves an installation auth token
     Installations.installations().authToken { result, error in
@@ -73,18 +71,16 @@ final class InstallationsAPITests {
       }
     }
 
-    #if compiler(>=5.5) && canImport(_Concurrency)
-      if #available(iOS 15.0, macOS 12.0, macCatalyst 15.0, tvOS 15.0, watchOS 8.0, *) {
-        // async/await is a Swift 5.5+ feature available on iOS 15+
-        Task {
-          do {
-            _ = try await Installations.installations().authToken()
-          } catch {
-            // ...
-          }
+    if #available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, watchOS 7.0, *) {
+      // async/await is a Swift Concurrency feature available on iOS 13+ and macOS 10.15+
+      Task {
+        do {
+          _ = try await Installations.installations().authToken()
+        } catch {
+          // ...
         }
       }
-    #endif // compiler(>=5.5) && canImport(_Concurrency)
+    }
 
     // Retrieves an installation auth token with forcing refresh parameter
     Installations.installations().authTokenForcingRefresh(true) { result, error in
@@ -95,18 +91,16 @@ final class InstallationsAPITests {
       }
     }
 
-    #if compiler(>=5.5) && canImport(_Concurrency)
-      if #available(iOS 15.0, macOS 12.0, macCatalyst 15.0, tvOS 15.0, watchOS 8.0, *) {
-        // async/await is a Swift 5.5+ feature available on iOS 15+
-        Task {
-          do {
-            _ = try await Installations.installations().authTokenForcingRefresh(true)
-          } catch {
-            // ...
-          }
+    if #available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, watchOS 7.0, *) {
+      // async/await is a Swift Concurrency feature available on iOS 13+ and macOS 10.15+
+      Task {
+        do {
+          _ = try await Installations.installations().authTokenForcingRefresh(true)
+        } catch {
+          // ...
         }
       }
-    #endif // compiler(>=5.5) && canImport(_Concurrency)
+    }
 
     // Delete installation data
     Installations.installations().delete { error in
@@ -116,11 +110,17 @@ final class InstallationsAPITests {
     }
 
     #if swift(>=5.5)
-      if #available(iOS 15.0, macOS 12.0, macCatalyst 15.0, tvOS 15.0, watchOS 8.0, *) {
-        // async/await is a Swift 5.5+ feature available on iOS 15+
+      if #available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, watchOS 7.0, *) {
+        // async/await is a Swift Concurrency feature available on iOS 13+ and macOS 10.15+
         Task {
           do {
             _ = try await Installations.installations().delete()
+          } catch let error as NSError
+            where error.domain == InstallationsErrorDomain && error.code == InstallationsErrorCode
+            .unknown.rawValue {
+            // Above is the old way to handle errors.
+          } catch InstallationsErrorCode.unknown {
+            // Above is the new way to handle errors.
           } catch {
             // ...
           }
@@ -131,7 +131,7 @@ final class InstallationsAPITests {
     // MARK: -  InstallationsAuthTokenResult
 
     Installations.installations().authToken { result, _ in
-      if let result = result {
+      if let result {
         _ = result.expirationDate
         _ = result.authToken
       }
@@ -140,7 +140,8 @@ final class InstallationsAPITests {
     // MARK: - InstallationsErrorCode
 
     Installations.installations().authToken { _, error in
-      if let error = error {
+      if let error {
+        // Old error handling.
         switch (error as NSError).code {
         case Int(InstallationsErrorCode.unknown.rawValue):
           break
@@ -153,7 +154,25 @@ final class InstallationsAPITests {
         default:
           break
         }
+
+        // New error handling.
+        switch error {
+        case InstallationsErrorCode.unknown:
+          break
+        case InstallationsErrorCode.keychain:
+          break
+        case InstallationsErrorCode.serverUnreachable:
+          break
+        case InstallationsErrorCode.invalidConfiguration:
+          break
+        default:
+          break
+        }
       }
+    }
+    func globalStringSymbols() {
+      let _: String = InstallationIDDidChangeAppNameKey
+      let _: String = InstallationsErrorDomain
     }
   }
 }

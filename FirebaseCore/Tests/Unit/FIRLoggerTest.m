@@ -20,7 +20,8 @@
 // TODO - FIRLoggerTest should be split into a separate FIRLoggerTest and GULLoggerTest.
 // No test should include both includes.
 #import <GoogleUtilities/GULLogger.h>
-#import "FirebaseCore/Sources/Private/FIRLogger.h"
+#import "FirebaseCore/Extension/FIRLogger.h"
+#import "FirebaseCore/Sources/Public/FirebaseCore/FIRLoggerLevel.h"
 
 #import <asl.h>
 
@@ -70,11 +71,11 @@ static NSString *const kMessageCode = @"I-COR000001";
   _defaults = nil;
 }
 
-// Test some stable variables to make sure they weren't accidently changed.
+// Test some stable variables to make sure they weren't accidentally changed.
 - (void)testStableVariables {
   // Strings of type FIRLoggerServices.
-  XCTAssertEqualObjects(kFIRLoggerAnalytics, @"[Firebase/Analytics]");
-  XCTAssertEqualObjects(kFIRLoggerCore, @"[Firebase/Core]");
+  XCTAssertEqualObjects(kFIRLoggerAnalytics, @"[FirebaseAnalytics]");
+  XCTAssertEqualObjects(kFIRLoggerCore, @"[FirebaseCore]");
 }
 
 - (void)testInitializeASLForNonDebugMode {
@@ -117,13 +118,13 @@ static NSString *const kMessageCode = @"I-COR000001";
   [processInfoMock stopMocking];
 }
 
-- (void)testInitializeASLForDebugModeWithUserDefaults {
+- (void)testInitializeForDebugModeWithUserDefaults {
   // Stub.
   NSNumber *debugMode = @YES;
   [self.defaults setBool:debugMode.boolValue forKey:kFIRPersistedDebugModeKey];
 
   // Test.
-  GULLogError(@"my service", NO, kMessageCode, @"Some error.");
+  FIRLogError(kFIRLoggerCore, kMessageCode, @"Some error.");
 
   // Assert.
   debugMode = [self.defaults objectForKey:kFIRPersistedDebugModeKey];
@@ -183,6 +184,32 @@ static NSString *const kMessageCode = @"I-COR000001";
   XCTAssertEqual(FIRLoggerLevelNotice, ASL_LEVEL_NOTICE);
   XCTAssertEqual(FIRLoggerLevelInfo, ASL_LEVEL_INFO);
   XCTAssertEqual(FIRLoggerLevelDebug, ASL_LEVEL_DEBUG);
+}
+
+- (void)testFIRGetLoggerLevel {
+  FIRLoggerLevel loggerLevel = FIRGetLoggerLevel();
+
+  // The default logger level is FIRLoggerLevelNotice.
+  XCTAssertEqual(loggerLevel, FIRLoggerLevelNotice);
+}
+
+- (void)testFIRSetLoggerLevel {
+  FIRSetLoggerLevel(FIRLoggerLevelDebug);
+
+  FIRLoggerLevel loggerLevel = FIRGetLoggerLevel();
+
+  // The default logger level is FIRLoggerLevelNotice.
+  XCTAssertEqual(loggerLevel, FIRLoggerLevelDebug);
+}
+
+- (void)testFIRResetLogger_ResetsLoggerLevel {
+  FIRSetLoggerLevel(FIRLoggerLevelDebug);
+
+  FIRResetLogger();
+  FIRLoggerLevel loggerLevel = FIRGetLoggerLevel();
+
+  // The default logger level is FIRLoggerLevelNotice.
+  XCTAssertEqual(loggerLevel, FIRLoggerLevelNotice);
 }
 
 @end

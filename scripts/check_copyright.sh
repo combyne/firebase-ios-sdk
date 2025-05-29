@@ -24,13 +24,17 @@ options=(
 list=$(git grep "${options[@]}" -- \
     '*.'{c,cc,cmake,h,js,m,mm,py,rb,sh,swift} \
     CMakeLists.txt '**/CMakeLists.txt' \
+    ':(exclude)Sources/ProtoGen' \
+    ':(exclude)third_party/**' \
     ':(exclude)**/third_party/**')
 
 # Allow copyrights before 2020 without LLC.
-result=$(grep -L 'Copyright 20[0-1][0-9].*Google' $list)
+if [[ $list ]]; then
+  result=$(grep -L 'Copyright 20[0-1][0-9].*Google' $list)
+fi
 
 if [[ $result ]]; then
-    echo "$result"
-    echo "ERROR: Missing copyright notices in the files above. Please fix."
-    exit 1
+  echo "$result"
+  echo "ERROR: Missing copyright notices in the files above. Please fix."
+  exit 1
 fi

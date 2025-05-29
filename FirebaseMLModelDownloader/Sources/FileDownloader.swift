@@ -48,7 +48,7 @@ class ModelFileDownloader: NSObject, FileDownloader {
   private var downloadTask: URLSessionDownloadTask?
 
   /// URLSession to handle model downloads.
-  private lazy var downloadSession: URLSession = URLSession(
+  private lazy var downloadSession: URLSession = .init(
     configuration: configuration,
     delegate: self,
     delegateQueue: nil
@@ -63,11 +63,9 @@ class ModelFileDownloader: NSObject, FileDownloader {
     self.conditions = conditions
     configuration = URLSessionConfiguration.ephemeral
     /// Wait for network connectivity.
-    if #available(iOS 11.0, macOS 10.13, macCatalyst 13.0, tvOS 11.0, watchOS 4.0, *) {
-      self.configuration.waitsForConnectivity = true
-      /// Wait for 10 minutes.
-      self.configuration.timeoutIntervalForResource = 600
-    }
+    configuration.waitsForConnectivity = true
+    /// Wait for 10 minutes.
+    configuration.timeoutIntervalForResource = 600
     configuration.allowsCellularAccess = conditions.allowsCellularAccess
   }
 
@@ -99,7 +97,7 @@ extension ModelFileDownloader: URLSessionDownloadDelegate {
                   downloadTask: URLSessionDownloadTask,
                   didFinishDownloadingTo location: URL) {
     guard let response = downloadTask.response,
-      let urlResponse = response as? HTTPURLResponse else {
+          let urlResponse = response as? HTTPURLResponse else {
       completion?(.failure(FileDownloaderError.unexpectedResponseType))
       return
     }

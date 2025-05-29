@@ -22,7 +22,7 @@
 #import "FirebaseAppDistribution/Sources/FIRAppDistributionUIService.h"
 #import "FirebaseAppDistribution/Sources/FIRFADApiService.h"
 #import "FirebaseAppDistribution/Sources/Private/FIRAppDistribution.h"
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "FirebaseInstallations/Source/Library/Private/FirebaseInstallationsInternal.h"
 
 @interface FIRAppDistributionTests : XCTestCase
@@ -86,6 +86,12 @@
 
   _mockInstallationId = @"this-id-is-fake-ccccc";
   _mockReleases = @[
+    @{
+      @"codeHash" : @"this-is-the-first-code-hash",
+      @"displayVersion" : @"1.0.0",
+      @"buildVersion" : @"110",
+      @"downloadUrl" : @"http://faketyfakefake.download"
+    },
     @{
       @"codeHash" : @"this-is-another-code-hash",
       @"displayVersion" : @"1.0.0",
@@ -238,7 +244,7 @@
   [self mockFetchReleasesCompletion:_mockReleases error:nil];
   XCTestExpectation *expectation =
       [self expectationWithDescription:
-                @"Persist sign in state fails when the delegate recieves a failure."];
+                @"Persist sign in state fails when the delegate receives a failure."];
 
   [[self appDistribution] signInTesterWithCompletion:^(NSError *_Nullable error) {
     XCTAssertNotNil(error);

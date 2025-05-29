@@ -14,7 +14,7 @@
 #import "FirebaseAppDistribution/Sources/FIRFADApiService.h"
 #import <Foundation/Foundation.h>
 #import "FirebaseAppDistribution/Sources/FIRFADLogger.h"
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "FirebaseInstallations/Source/Library/Private/FirebaseInstallationsInternal.h"
 
 NSString *const kFIRFADApiErrorDomain = @"com.firebase.appdistribution.api";
@@ -107,7 +107,7 @@ NSString *const kResponseReleasesKey = @"releases";
                           response:(NSURLResponse *)response
                              error:(NSError **_Nullable)error {
   NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-  FIRFADInfoLog(@"HTTPResonse status code %ld response %@", (long)[httpResponse statusCode],
+  FIRFADInfoLog(@"HTTPResponse status code %ld response %@", (long)[httpResponse statusCode],
                 httpResponse);
 
   if ([self handleHttpResponseError:httpResponse error:error]) {

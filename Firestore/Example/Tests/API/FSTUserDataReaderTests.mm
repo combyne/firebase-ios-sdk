@@ -18,8 +18,9 @@
 
 #import <FirebaseFirestore/FIRFieldValue.h>
 #import <FirebaseFirestore/FIRGeoPoint.h>
-#import <FirebaseFirestore/FIRTimestamp.h>
 #import <XCTest/XCTest.h>
+
+#import "FirebaseCore/Sources/Public/FirebaseCore/FIRTimestamp.h"
 
 #import "Firestore/Example/Tests/Util/FSTHelpers.h"
 #import "Firestore/Source/API/converters.h"
@@ -36,10 +37,10 @@
 namespace nanopb = firebase::firestore::nanopb;
 using firebase::Timestamp;
 using firebase::firestore::GeoPoint;
-using firebase::firestore::api::MakeGeoPoint;
-using firebase::firestore::api::MakeTimestamp;
 using firebase::firestore::google_firestore_v1_ArrayValue;
 using firebase::firestore::google_firestore_v1_Value;
+using firebase::firestore::api::MakeGeoPoint;
+using firebase::firestore::api::MakeTimestamp;
 using firebase::firestore::model::ArrayTransform;
 using firebase::firestore::model::DatabaseId;
 using firebase::firestore::model::FieldPath;

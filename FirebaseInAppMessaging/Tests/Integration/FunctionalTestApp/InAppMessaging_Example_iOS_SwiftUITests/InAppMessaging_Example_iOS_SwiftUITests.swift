@@ -26,7 +26,8 @@ class InAppMessaging_Example_iOS_SwiftUITests: XCTestCase {
   }
 
   override func tearDown() {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
+    // Put teardown code here. This method is called after the invocation of each test method in the
+    // class.
     XCUIDevice.shared.orientation = .portrait
     super.tearDown()
   }
@@ -451,7 +452,7 @@ class InAppMessaging_Example_iOS_SwiftUITests: XCTestCase {
     let orientantions = [UIDeviceOrientation.portrait, UIDeviceOrientation.landscapeLeft]
     for orientation in orientantions {
       XCUIDevice.shared.orientation = orientation
-      app.buttons["Wthout Image or Action Button"].tap()
+      app.buttons["Without Image or Action Button"].tap()
 
       waitForElementToAppear(closeButton)
 

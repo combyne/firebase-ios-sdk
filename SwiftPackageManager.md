@@ -1,22 +1,15 @@
 # Swift Package Manager for Firebase
 
-## Introduction
-
-Starting with the 8.0.0 release, Firebase officially supports installation via [Swift
-Package Manager](https://swift.org/package-manager/).
-
-Prior to version 8.0.0 (starting with version 6.31.0) support was in Beta.
-
 ## Requirements
 
-- Requires Xcode 12.5 or above
+- Requires Xcode 15.2 or above
 - Analytics requires clients to add `-ObjC` linker option.
 - See [Package.swift](Package.swift) for supported platform versions.
 
 ## Limitations
 
 - Product availability varies by platform. See [the chart on this page](https://firebase.google.com/docs/ios/learn-more#firebase_library_support_by_platform)
-  for information on product availabilty for each platform.
+  for information on product availability for each platform.
 
 ## Installation
 
@@ -35,7 +28,7 @@ Search for the Firebase Apple SDK using the repo's URL:
 https://github.com/firebase/firebase-ios-sdk.git
 ```
 
-Next, set the **Dependency Rule** to be `Up to Next Major Version` and specify `8.10.0` as the lower bound.
+Next, set the **Dependency Rule** to be `Up to Next Major Version`.
 
 Then, select **Add Package**.
 
@@ -61,12 +54,14 @@ If you're using FirebaseCrashlytics, you can use
 as the run script that allows Xcode to upload your project's dSYM files.
 
 Another option is to use the
-[upload-symbols](https://github.com/firebase/firebase-ios-sdk/raw/master/Crashlytics/upload-symbols)
+[upload-symbols](https://github.com/firebase/firebase-ios-sdk/raw/main/Crashlytics/upload-symbols)
 script. Place it in the directory where your `.xcodeproj` file lives,
 eg. `scripts/upload-symbols`, and make sure that the file is executable:
 `chmod +x scripts/upload-symbols`.
 This script can be used to manually upload dSYM files (for usage notes and
 additional instructions, run with the `--help` parameter).
+
+If you're getting `error: Could not get GOOGLE_APP_ID in Google Services file from build environment` on the Crashlytics run script step and you're using Xcode 15 and specifically `User Script Sandboxing = YES`, make sure to include all input files referenced [here](https://github.com/firebase/firebase-ios-sdk/pull/11463) in the Crashlytics run script.
 
 ---
 
@@ -80,7 +75,7 @@ dependencies: [
   .package(
     name: "Firebase",
     url: "https://github.com/firebase/firebase-ios-sdk.git",
-    .upToNextMajor(from: "8.10.0")
+    .upToNextMajor(from: "10.4.0")
   ),
 
   // Any other dependencies you have...
@@ -106,4 +101,4 @@ Please provide any feedback via a [GitHub
 Issue](https://github.com/firebase/firebase-ios-sdk/issues/new?template=bug_report.md).
 
 See current open Swift Package Manager issues
-[here](https://github.com/firebase/firebase-ios-sdk/labels/Swift%20Package%20Manager).
+[here]([https://github.com/firebase/firebase-ios-sdk/labels/Swift%20Package%20Manager](https://github.com/firebase/firebase-ios-sdk/issues?q=is%3Aopen+label%3A%22Swift+Package+Manager%22+sort%3Acomments-desc)).

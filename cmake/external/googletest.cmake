@@ -18,15 +18,21 @@ if(TARGET googletest OR NOT DOWNLOAD_GOOGLETEST)
   return()
 endif()
 
-set(version 1.10.0)
+# Note: googletest lives at head and encourages to just point to a head commit.
+# https://github.com/google/googletest/blob/bf66935e07/README.md?plain=1#L5-L10
+
+# Commit 4a00a24fff was chosen because it is the _last_ commit before googletest
+# dropped c++14 support, setting the floor to c++17. Once Firebase sets _its_
+# floor to c++17, this pinned commit can be moved to a new one.
+# See https://github.com/firebase/firebase-ios-sdk/pull/14474.
+set(version 4a00a24fff)
 
 ExternalProject_Add(
   googletest
 
   DOWNLOAD_DIR ${FIREBASE_DOWNLOAD_DIR}
-  DOWNLOAD_NAME googletest-${version}.tar.gz
-  URL https://github.com/google/googletest/archive/release-${version}.tar.gz
-  URL_HASH SHA256=9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG "${version}"
 
   PREFIX ${PROJECT_BINARY_DIR}
 

@@ -15,9 +15,11 @@
 #import "FirebasePerformance/Sources/AppActivity/FPRAppActivityTracker.h"
 
 #import <Foundation/Foundation.h>
+#import <Network/Network.h>
 #import <UIKit/UIKit.h>
 
 #import "FirebasePerformance/Sources/AppActivity/FPRSessionManager.h"
+#import "FirebasePerformance/Sources/Configurations/FPRConfigurations.h"
 #import "FirebasePerformance/Sources/Gauges/CPU/FPRCPUGaugeCollector+Private.h"
 #import "FirebasePerformance/Sources/Gauges/FPRGaugeManager.h"
 #import "FirebasePerformance/Sources/Gauges/Memory/FPRMemoryGaugeCollector+Private.h"
@@ -25,9 +27,12 @@
 #import "FirebasePerformance/Sources/Timer/FIRTrace+Private.h"
 
 static NSDate *appStartTime = nil;
+static NSDate *doubleDispatchTime = nil;
+static NSDate *applicationDidFinishLaunchTime = nil;
 static NSTimeInterval gAppStartMaxValidDuration = 60 * 60;  // 60 minutes.
 static FPRCPUGaugeData *gAppStartCPUGaugeData = nil;
 static FPRMemoryGaugeData *gAppStartMemoryGaugeData = nil;
+static BOOL isActivePrewarm = NO;
 
 NSString *const kFPRAppStartTraceName = @"_as";
 NSString *const kFPRAppStartStageNameTimeToUI = @"_astui";
@@ -38,6 +43,7 @@ NSString *const kFPRAppTraceNameBackgroundSession = @"_bs";
 NSString *const kFPRAppCounterNameTraceEventsRateLimited = @"_fstec";
 NSString *const kFPRAppCounterNameNetworkTraceEventsRateLimited = @"_fsntc";
 NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
+NSString *const kFPRAppCounterNameActivePrewarm = @"_fsapc";
 
 @interface FPRAppActivityTracker ()
 
@@ -50,11 +56,23 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
 /** Current running state of the application. */
 @property(nonatomic, readwrite) FPRApplicationState applicationState;
 
+/** Current network connection type of the application. */
+@property(nonatomic, readwrite) firebase_perf_v1_NetworkConnectionInfo_NetworkType networkType;
+
+/** Network monitor object to track network movements. */
+@property(nonatomic, readwrite) nw_path_monitor_t monitor;
+
+/** Queue used to track the network monitoring changes. */
+@property(nonatomic, readwrite) dispatch_queue_t monitorQueue;
+
 /** Trace to measure the app start performance. */
 @property(nonatomic) FIRTrace *appStartTrace;
 
 /** Tracks if the gauge metrics are dispatched. */
 @property(nonatomic) BOOL appStartGaugeMetricDispatched;
+
+/** Firebase Performance Configuration object */
+@property(nonatomic) FPRConfigurations *configurations;
 
 /** Starts tracking app active sessions. */
 - (void)startAppActivityTracking;
@@ -66,11 +84,21 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
 + (void)load {
   // This is an approximation of the app start time.
   appStartTime = [NSDate date];
+
+  // When an app is prewarmed, Apple sets env variable ActivePrewarm to 1, then the env variable is
+  // deleted after didFinishLaunching
+  isActivePrewarm = [NSProcessInfo.processInfo.environment[@"ActivePrewarm"] isEqualToString:@"1"];
+
   gAppStartCPUGaugeData = fprCollectCPUMetric();
   gAppStartMemoryGaugeData = fprCollectMemoryMetric();
   [[NSNotificationCenter defaultCenter] addObserver:self
                                            selector:@selector(windowDidBecomeVisible:)
                                                name:UIWindowDidBecomeVisibleNotification
+                                             object:nil];
+
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(applicationDidFinishLaunching:)
+                                               name:UIApplicationDidFinishLaunchingNotification
                                              object:nil];
 }
 
@@ -80,6 +108,13 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
 
   [[NSNotificationCenter defaultCenter] removeObserver:self
                                                   name:UIWindowDidBecomeVisibleNotification
+                                                object:nil];
+}
+
++ (void)applicationDidFinishLaunching:(NSNotification *)notification {
+  applicationDidFinishLaunchTime = [NSDate date];
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:UIApplicationDidFinishLaunchingNotification
                                                 object:nil];
 }
 
@@ -97,8 +132,12 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
  */
 - (instancetype)initAppActivityTracker {
   self = [super init];
-  _applicationState = FPRApplicationStateUnknown;
-  _appStartGaugeMetricDispatched = NO;
+  if (self != nil) {
+    _applicationState = FPRApplicationStateUnknown;
+    _appStartGaugeMetricDispatched = NO;
+    _configurations = [FPRConfigurations sharedInstance];
+    [self startTrackingNetwork];
+  }
   return self;
 }
 
@@ -119,6 +158,77 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
     return self.foregroundSessionTrace;
   }
   return self.backgroundSessionTrace;
+}
+
+- (void)startTrackingNetwork {
+  self.networkType = firebase_perf_v1_NetworkConnectionInfo_NetworkType_NONE;
+
+  dispatch_queue_attr_t attrs = dispatch_queue_attr_make_with_qos_class(
+      DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, DISPATCH_QUEUE_PRIORITY_DEFAULT);
+  self.monitorQueue = dispatch_queue_create("com.google.firebase.perf.network.monitor", attrs);
+
+  self.monitor = nw_path_monitor_create();
+  nw_path_monitor_set_queue(self.monitor, self.monitorQueue);
+  __weak FPRAppActivityTracker *weakSelf = self;
+  nw_path_monitor_set_update_handler(self.monitor, ^(nw_path_t _Nonnull path) {
+    BOOL isWiFi = nw_path_uses_interface_type(path, nw_interface_type_wifi);
+    BOOL isCellular = nw_path_uses_interface_type(path, nw_interface_type_cellular);
+    BOOL isEthernet = nw_path_uses_interface_type(path, nw_interface_type_wired);
+
+    if (isWiFi) {
+      weakSelf.networkType = firebase_perf_v1_NetworkConnectionInfo_NetworkType_WIFI;
+    } else if (isCellular) {
+      weakSelf.networkType = firebase_perf_v1_NetworkConnectionInfo_NetworkType_MOBILE;
+    } else if (isEthernet) {
+      weakSelf.networkType = firebase_perf_v1_NetworkConnectionInfo_NetworkType_ETHERNET;
+    }
+  });
+
+  nw_path_monitor_start(self.monitor);
+}
+
+/**
+ * Checks if the prewarming feature is available on the current device.
+ *
+ * @return true if the OS could prewarm apps on the current device
+ */
+- (BOOL)isPrewarmAvailable {
+  return YES;
+}
+
+/**
+ RC flag for dropping all app start events
+ */
+- (BOOL)isAppStartEnabled {
+  return [self.configurations prewarmDetectionMode] != PrewarmDetectionModeKeepNone;
+}
+
+/**
+ RC flag for enabling prewarm-detection using ActivePrewarm environment variable
+ */
+- (BOOL)isActivePrewarmEnabled {
+  PrewarmDetectionMode mode = [self.configurations prewarmDetectionMode];
+  return (mode == PrewarmDetectionModeActivePrewarm);
+}
+
+/**
+ Checks if the current app start is a prewarmed app start
+ */
+- (BOOL)isApplicationPreWarmed {
+  if (![self isPrewarmAvailable]) {
+    return NO;
+  }
+
+  BOOL isPrewarmed = NO;
+
+  if (isActivePrewarm == YES) {
+    isPrewarmed = isPrewarmed || [self isActivePrewarmEnabled];
+    [self.activeTrace incrementMetric:kFPRAppCounterNameActivePrewarm byInt:1];
+  } else {
+    [self.activeTrace incrementMetric:kFPRAppCounterNameActivePrewarm byInt:0];
+  }
+
+  return isPrewarmed;
 }
 
 /**
@@ -173,16 +283,14 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
       // happens a lot later.
       // Dropping the app start trace in such situations where the launch time is taking more than
       // 60 minutes. This is an approximation, but a more agreeable timelimit for app start.
-      if (currentTimeSinceEpoch - startTimeSinceEpoch < gAppStartMaxValidDuration) {
+      if ((currentTimeSinceEpoch - startTimeSinceEpoch < gAppStartMaxValidDuration) &&
+          [self isAppStartEnabled] && ![self isApplicationPreWarmed]) {
         [self.appStartTrace stop];
       } else {
         [self.appStartTrace cancel];
       }
     });
   }
-
-  // Let the session manager to start tracking app activity changes.
-  [[FPRSessionManager sharedInstance] startTrackingAppStateChanges];
 }
 
 /**
@@ -212,6 +320,8 @@ NSString *const kFPRAppCounterNameTraceNotStopped = @"_tsns";
 }
 
 - (void)dealloc {
+  nw_path_monitor_cancel(self.monitor);
+
   [[NSNotificationCenter defaultCenter] removeObserver:self
                                                   name:UIApplicationDidBecomeActiveNotification
                                                 object:[UIApplication sharedApplication]];

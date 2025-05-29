@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import XCTest
 @testable import FirebaseCore
+import XCTest
 
 private extension Constants {
   static let testAppName1 = "test_app_name_1"
@@ -183,7 +183,7 @@ class FirebaseAppTests: XCTestCase {
     waitForExpectations(timeout: 1)
   }
 
-  func testGetUnitializedDefaultApp() {
+  func testGetUninitializedDefaultApp() {
     let app = FirebaseApp.app()
     XCTAssertNil(app)
   }
@@ -300,7 +300,6 @@ class FirebaseAppTests: XCTestCase {
     XCTAssertEqual(app.options.googleAppID, Constants.Options.googleAppID)
     XCTAssertEqual(app.options.gcmSenderID, Constants.Options.gcmSenderID)
     XCTAssertEqual(app.options.deepLinkURLScheme, superSecretURLScheme)
-    XCTAssertNil(app.options.androidClientID)
   }
 
   func testFirebaseDataCollectionDefaultEnabled() throws {
@@ -317,9 +316,9 @@ class FirebaseAppTests: XCTestCase {
     // Cleanup
     app.isDataCollectionDefaultEnabled = true
 
-    let expecation = expectation(description: #function)
+    let expectation = expectation(description: #function)
     app.delete { success in
-      expecation.fulfill()
+      expectation.fulfill()
     }
 
     waitForExpectations(timeout: 1)
@@ -341,22 +340,20 @@ class FirebaseAppTests: XCTestCase {
   // MARK: - Helpers
 
   private func expectAppConfigurationNotification(appName: String, isDefaultApp: Bool) {
-    let expectedUserInfo: NSDictionary = [
+    let expectedUserInfo: [String: Any] = [
       "FIRAppNameKey": appName,
       "FIRAppIsDefaultAppKey": NSNumber(value: isDefaultApp),
       "FIRGoogleAppIDKey": Constants.Options.googleAppID,
     ]
 
     expectation(forNotification: NSNotification.Name.firAppReadyToConfigureSDK,
-                object: FirebaseApp.self, handler: { (notification) -> Bool in
-                  if let userInfo = notification.userInfo {
-                    if expectedUserInfo.isEqual(to: userInfo) {
-                      return true
-                    }
-                  } else {
+                object: FirebaseApp.self, handler: { notification -> Bool in
+                  guard let userInfo = notification.userInfo else {
                     XCTFail("Failed to unwrap notification user info")
+                    return false
                   }
-                  return false
+                  return NSDictionary(dictionary: expectedUserInfo) ==
+                    NSDictionary(dictionary: userInfo)
                 })
   }
 }

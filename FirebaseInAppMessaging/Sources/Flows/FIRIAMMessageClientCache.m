@@ -15,9 +15,9 @@
  */
 
 #import <TargetConditionals.h>
-#if TARGET_OS_IOS || TARGET_OS_TV
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 #import "FirebaseInAppMessaging/Sources/FIRCore+InAppMessaging.h"
 #import "FirebaseInAppMessaging/Sources/Private/Data/FIRIAMFetchResponseParser.h"
@@ -92,7 +92,7 @@
                "resetting the message cache",
               (unsigned long)self.testMessages.count, (unsigned long)self.regularMessages.count,
               (unsigned long)self.firebaseAnalyticEventsToWatch.count);
-  [self.observer dataChanged];
+  [self.observer messageDataChanged];
 }
 
 // triggered after self.messages are updated so that we can correctly enable/disable listening
@@ -108,15 +108,15 @@
     }
   }
 
-  if (self.analycisEventDislayCheckFlow) {
+  if (self.analyticsEventDisplayCheckFlow) {
     if ([self.firebaseAnalyticEventsToWatch count] > 0) {
       FIRLogDebug(kFIRLoggerInAppMessaging, @"I-IAM160010",
                   @"There are analytics event trigger based messages, enable listening");
-      [self.analycisEventDislayCheckFlow start];
+      [self.analyticsEventDisplayCheckFlow start];
     } else {
       FIRLogDebug(kFIRLoggerInAppMessaging, @"I-IAM160011",
                   @"No analytics event trigger based messages, disable listening");
-      [self.analycisEventDislayCheckFlow stop];
+      [self.analyticsEventDisplayCheckFlow stop];
     }
   }
 }
@@ -126,7 +126,9 @@
 }
 
 - (BOOL)hasTestMessage {
-  return self.testMessages.count > 0;
+  @synchronized(self) {
+    return self.testMessages.count > 0;
+  }
 }
 
 - (nullable FIRIAMMessageDefinition *)nextOnAppLaunchDisplayMsg {
@@ -135,7 +137,7 @@
 
 - (nullable FIRIAMMessageDefinition *)nextOnAppOpenDisplayMsg {
   @synchronized(self) {
-    // always first check test message which always have higher prirority
+    // always first check test message which always have higher priority
     if (self.testMessages.count > 0) {
       FIRIAMMessageDefinition *testMessage = self.testMessages[0];
       // always remove test message right away when being fetched for display
@@ -213,7 +215,7 @@
 
   // triggers the observer outside synchronization block
   if (msgToRemove) {
-    [self.observer dataChanged];
+    [self.observer messageDataChanged];
   }
 }
 
@@ -236,4 +238,4 @@
 }
 @end
 
-#endif  // TARGET_OS_IOS || TARGET_OS_TV
+#endif  // TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION

@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#import "FIRDocumentSnapshot+Internal.h"
+#import <FirebaseCore/FIRTimestamp.h>
 
 #include <utility>
 #include <vector>
+
+#import "FIRDocumentSnapshot+Internal.h"
 
 #include "Firestore/core/src/util/warnings.h"
 
@@ -26,7 +28,6 @@
 #import "Firestore/Source/API/FIRFirestore+Internal.h"
 #import "Firestore/Source/API/FIRGeoPoint+Internal.h"
 #import "Firestore/Source/API/FIRSnapshotMetadata+Internal.h"
-#import "Firestore/Source/API/FIRTimestamp+Internal.h"
 #import "Firestore/Source/API/FSTUserDataWriter.h"
 #import "Firestore/Source/API/converters.h"
 
@@ -56,12 +57,11 @@ using firebase::firestore::model::Document;
 using firebase::firestore::model::DocumentKey;
 using firebase::firestore::model::FieldPath;
 using firebase::firestore::model::ObjectValue;
-using firebase::firestore::remote::Serializer;
 using firebase::firestore::nanopb::MakeNSData;
+using firebase::firestore::remote::Serializer;
 using firebase::firestore::util::MakeNSString;
 using firebase::firestore::util::MakeString;
 using firebase::firestore::util::ThrowInvalidArgument;
-using firebase::firestore::google_firestore_v1_Value;
 
 NS_ASSUME_NONNULL_BEGIN
 

@@ -24,6 +24,18 @@ def hasChangesIn(paths)
   return false
 end
 
+# Determine if any new files were added to paths matching any of the
+# path patterns provided.
+def hasAdditionsIn(paths)
+  path_array = Array(paths)
+  path_array.each do |dir|
+    if !git.added_files.grep(/#{dir}/).empty?
+      return true
+    end
+  end
+  return false
+end
+
 # Adds the provided labels to the current PR.
 def addLabels(label_array)
   issue_number = github.pr_json["number"]
@@ -35,6 +47,7 @@ end
 # multiple directories may have multiple labels.
 def labelsForModifiedFiles()
   labels = []
+  labels.push("api: analytics") if @has_analytics_changes
   labels.push("api: abtesting") if @has_abtesting_changes
   labels.push("api: appcheck") if @has_appcheck_changes
   labels.push("api: appdistribution") if @has_appdistribution_changes
@@ -43,6 +56,7 @@ def labelsForModifiedFiles()
   labels.push("api: crashlytics") if @has_crashlytics_changes
   labels.push("api: database") if @has_database_changes
   labels.push("api: dynamiclinks") if @has_dynamiclinks_changes
+  labels.push("api: firebaseai") if @has_firebaseai_changes
   labels.push("api: firestore") if @has_firestore_changes
   labels.push("api: functions") if @has_functions_changes
   labels.push("api: inappmessaging") if @has_inappmessaging_changes
@@ -50,7 +64,6 @@ def labelsForModifiedFiles()
   labels.push("api: messaging") if @has_messaging_changes
   labels.push("api: performance") if @has_performance_changes
   labels.push("api: remoteconfig") if @has_remoteconfig_changes
-  labels.push("api: segmentation") if @has_segmentation_changes
   labels.push("api: storage") if @has_storage_changes
   labels.push("release-tooling") if @has_releasetooling_changes
   labels.push("public-api-change") if @has_api_changes
@@ -70,7 +83,39 @@ has_changelog_changes = hasChangesIn(["CHANGELOG"])
 # Whether or not the LICENSE file has been modified or deleted.
 has_license_changes = didModify(["LICENSE"])
 
+# A list of published Firebase products.
+@product_list = [
+  "ABTesting",
+  "AppCheck",
+  "AppDistribution",
+  "Analytics",
+  "Authentication",
+  "Core",
+  "Crashlytics",
+  "Database",
+  "DynamicLinks",
+  "FirebaseAI",
+  "Firestore",
+  "Functions",
+  "InAppMessaging",
+  "Installations",
+  "Messaging",
+  "Performance",
+  "RemoteConfig",
+  "Storage"
+]
+
 ## Product directories
+@has_analytics_changes = hasChangesIn([
+  "FirebaseAnalyticsOnDeviceConversionWrapper",
+  "FirebaseAnalyticsWithoutAdIdSupportWrapper",
+  "FirebaseAnalyticsWrapper"
+]) || didModify([
+  "FirebaseAnalytics.podspec",
+  "FirebaseAnalyticsOnDeviceConversion.podspec",
+  "GoogleAppMeasurement.podspec",
+  "GoogleAppMeasurementOnDeviceConversion.podspec"
+])
 @has_abtesting_changes = hasChangesIn("FirebaseABTesting")
 @has_abtesting_api_changes = hasChangesIn("FirebaseABTesting/Sources/Public/")
 @has_appcheck_changes = hasChangesIn("FirebaseAppCheck")
@@ -81,7 +126,6 @@ has_license_changes = didModify(["LICENSE"])
 @has_auth_api_changes = hasChangesIn("FirebaseAuth/Sources/Public/")
 @has_core_changes = hasChangesIn([
   "FirebaseCore",
-  "Firebase/CoreDiagnostics/",
   "CoreOnly/"])
 @has_core_api_changes = hasChangesIn("FirebaseCore/Sources/Public/")
 @has_crashlytics_changes = hasChangesIn("Crashlytics")
@@ -90,9 +134,13 @@ has_license_changes = didModify(["LICENSE"])
 @has_database_api_changes = hasChangesIn("FirebaseDatabase/Sources/Public/")
 @has_dynamiclinks_changes = hasChangesIn("FirebaseDynamicLinks")
 @has_dynamiclinks_api_changes = hasChangesIn("FirebaseDynamicLinks/Sources/Public/")
+@has_firebaseai_changes = hasChangesIn([
+  "FirebaseAI",
+  "FirebaseVertexAI"
+])
 @has_firestore_changes = hasChangesIn(["Firestore/", "FirebaseFirestore.podspec"])
 @has_firestore_api_changes = hasChangesIn("Firestore/Source/Public/")
-@has_functions_changes = hasChangesIn(["FirebaseFunctions/", "FirebaseFunctions.podspec"])
+@has_functions_changes = hasChangesIn(["FirebaseFunctions"])
 @has_functions_api_changes = hasChangesIn("FirebaseFunctions/Sources/Public/")
 @has_inappmessaging_changes = hasChangesIn(["FirebaseInAppMessaging"])
 @has_inappmessaging_api_changes = hasChangesIn(["FirebaseInAppMessaging/Sources/Public/"])
@@ -104,12 +152,13 @@ has_license_changes = didModify(["LICENSE"])
 @has_performance_api_changes = hasChangesIn("FirebasePerformance/Sources/Public/")
 @has_remoteconfig_changes = hasChangesIn("FirebaseRemoteConfig")
 @has_remoteconfig_api_changes = hasChangesIn("FirebaseRemoteConfig/Sources/Public/")
-@has_segmentation_changes = hasChangesIn("FirebaseSegmentation")
-@has_segmentation_api_changes = hasChangesIn("FirebaseSegmentation/Source/Public/")
 @has_storage_changes = hasChangesIn("FirebaseStorage")
-@has_storage_api_changes = hasChangesIn("FirebaseStorage/Sources/Public/")
 
 @has_releasetooling_changes = hasChangesIn("ReleaseTooling/")
+@has_public_additions = hasAdditionsIn("Public/")
+
+@has_umbrella_changes =
+    @product_list.reduce(false) { |accum, product| accum || hasChangesIn("Firebase#{product}.h") }
 
 # Convenient flag for all API changes.
 @has_api_changes = @has_abtesting_api_changes ||
@@ -127,7 +176,6 @@ has_license_changes = didModify(["LICENSE"])
                      @has_messaging_api_changes ||
                      @has_performance_api_changes ||
                      @has_remoteconfig_api_changes ||
-                     @has_segmentation_api_changes ||
                      @has_storage_api_changes ||
                      @has_gdt_api_changes
 
@@ -155,6 +203,14 @@ if has_sdk_changes
       " to the PR description to silence this warning.)"
     warn(warning)
   end
+end
+
+# Warn if a new public header file is added but no umbrella header changes
+# are detected. Prevents regression of #10301
+if @has_public_additions && !@has_umbrella_changes
+  error = "New public headers were added, "\
+      "did you remember to add them to the umbrella header?"
+  warn(error)
 end
 
 # Error on license edits

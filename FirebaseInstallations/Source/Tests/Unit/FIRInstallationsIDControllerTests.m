@@ -18,7 +18,7 @@
 
 #import <OCMock/OCMock.h>
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 #import "FBLPromise+Testing.h"
 #import "FBLPromise+Then.h"
@@ -97,19 +97,20 @@
 #pragma mark - Initialization
 
 - (void)testInitWhenProjectIDSetThenItIsPassedToAPIService {
-  NSString *APIKey = @"api-key";
-  NSString *projectID = @"project-id";
+  FIROptions *options = [[FIROptions alloc] initWithGoogleAppID:@"app-id" GCMSenderID:@"sender-id"];
+  options.projectID = @"project-id";
+  options.APIKey = @"api-key";
+
+  FIRApp *app = [[FIRApp alloc] initInstanceWithName:@"app-name" options:options];
+
   OCMExpect([self.mockAPIService alloc]).andReturn(self.mockAPIService);
-  OCMExpect([self.mockAPIService initWithAPIKey:APIKey projectID:projectID])
+  OCMExpect([self.mockAPIService initWithAPIKey:app.options.APIKey
+                                      projectID:app.options.projectID
+                                heartbeatLogger:app.heartbeatLogger])
       .andReturn(self.mockAPIService);
 
-  FIRInstallationsIDController *controller =
-      [[FIRInstallationsIDController alloc] initWithGoogleAppID:@"app-id"
-                                                        appName:@"app-name"
-                                                         APIKey:APIKey
-                                                      projectID:projectID
-                                                    GCMSenderID:@"sender-id"
-                                                    accessGroup:nil];
+  FIRInstallationsIDController *controller = [[FIRInstallationsIDController alloc] initWithApp:app];
+
   XCTAssertNotNil(controller);
 
   OCMVerifyAll(self.mockAPIService);

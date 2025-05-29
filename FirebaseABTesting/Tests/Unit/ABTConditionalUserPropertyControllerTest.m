@@ -23,7 +23,7 @@
 #import "FirebaseABTesting/Tests/Unit/ABTFakeFIRAConditionalUserPropertyController.h"
 #import "FirebaseABTesting/Tests/Unit/ABTTestUniversalConstants.h"
 #import "FirebaseABTesting/Tests/Unit/Utilities/ABTTestUtilities.h"
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 @interface ABTConditionalUserPropertyController (ExposedForTest)
 - (NSInteger)maxNumberOfExperimentsOfOrigin:(NSString *)origin;
@@ -65,11 +65,9 @@ typedef void (^FakeAnalyticsLogEventWithOriginNameParametersHandler)(
 
   // Must initialize FIRApp before calling set experiment as Firebase Analytics internal event
   // logging requires it.
-  NSDictionary *optionsDictionary = @{
-    kFIRGoogleAppID : @"1:123456789012:ios:1234567890123456",
-    @"GCM_SENDER_ID" : @"123456789012"
-  };
-  FIROptions *options = [[FIROptions alloc] initInternalWithOptionsDictionary:optionsDictionary];
+  FIROptions *options =
+      [[FIROptions alloc] initWithGoogleAppID:@"1:123456789012:ios:1234567890123456"
+                                  GCMSenderID:@"123456789012"];
   [FIRApp configureWithOptions:options];
 }
 

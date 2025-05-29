@@ -19,7 +19,7 @@
 
   @available(swift 5.0)
   @available(iOS 13.0, macOS 10.15, macCatalyst 13.0, tvOS 13.0, watchOS 6.0, *)
-  extension User {
+  public extension User {
     /// Associates a user account from a third-party identity provider with this user and
     /// returns additional identity provider data.
     ///
@@ -29,20 +29,21 @@
     /// - Returns: A publisher that emits an `AuthDataResult` when the association flow completed
     ///   successfully, or an error otherwise. The publisher will emit on the *main* thread.
     /// - Remark: Possible error codes:
-    ///   - `FIRAuthErrorCodeProviderAlreadyLinked` - Indicates an attempt to link a provider of a type
-    ///     already linked to this account.
-    ///   - `FIRAuthErrorCodeCredentialAlreadyInUse` - Indicates an attempt to link with a credential
-    ///     that has already been linked with a different Firebase account.
-    ///   - `FIRAuthErrorCodeOperationNotAllowed` - Indicates that accounts with the identity provider
-    ///     represented by the credential are not enabled. Enable them in the Auth section of the Firebase console.
+    ///   - `FIRAuthErrorCodeProviderAlreadyLinked` - Indicates an attempt to link a provider of a
+    ///      type already linked to this account.
+    ///   - `FIRAuthErrorCodeCredentialAlreadyInUse` - Indicates an attempt to link with a
+    ///     credential that has already been linked with a different Firebase account.
+    ///   - `FIRAuthErrorCodeOperationNotAllowed` - Indicates that accounts with the identity
+    ///     provider represented by the credential are not enabled. Enable them in the Auth
+    ///     section of the Firebase console.
     ///
     ///   See `FIRAuthErrors` for a list of error codes that are common to all FIRUser methods.
-    public func link(with credential: AuthCredential) -> Future<AuthDataResult, Error> {
+    func link(with credential: AuthCredential) -> Future<AuthDataResult, Error> {
       Future<AuthDataResult, Error> { promise in
         self.link(with: credential) { authDataResult, error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
-          } else if let authDataResult = authDataResult {
+          } else if let authDataResult {
             promise(.success(authDataResult))
           }
         }
@@ -54,12 +55,14 @@
     ///
     /// The publisher will emit events on the **main** thread.
     ///
-    /// - Parameter credential: A user-supplied credential, which will be validated by the server. This can be
-    ///   a successful third-party identity provider sign-in, or an email address and password.
-    /// - Returns: A publisher that emits an `AuthDataResult` when the reauthentication flow completed
-    ///   successfully, or an error otherwise.
-    /// - Remark: If the user associated with the supplied credential is different from the current user, or if the validation
-    ///   of the supplied credentials fails; an error is returned and the current user remains signed in.
+    /// - Parameter credential: A user-supplied credential, which will be validated by the server.
+    ///   This can be a successful third-party identity provider sign-in, or an email address and
+    ///   password.
+    /// - Returns: A publisher that emits an `AuthDataResult` when the reauthentication flow
+    ///   completed successfully, or an error otherwise.
+    /// - Remark: If the user associated with the supplied credential is different from the current
+    ///   user, or if the validation of the supplied credentials fails; an error is returned and the
+    ///   current user remains signed in.
     ///
     ///   Possible error codes:
     ///
@@ -83,12 +86,12 @@
     ///   - `FIRAuthErrorCodeInvalidEmail` - Indicates the email address is malformed.
     ///
     ///   See `FIRAuthErrors` for a list of error codes that are common to all FIRUser methods.
-    public func reauthenticate(with credential: AuthCredential) -> Future<AuthDataResult, Error> {
+    func reauthenticate(with credential: AuthCredential) -> Future<AuthDataResult, Error> {
       Future<AuthDataResult, Error> { promise in
         self.reauthenticate(with: credential) { authDataResult, error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
-          } else if let authDataResult = authDataResult {
+          } else if let authDataResult {
             promise(.success(authDataResult))
           }
         }
@@ -113,12 +116,12 @@
     ///      reauthenticateWithCredential:completion: on `FIRUser`.
     ///
     ///   See `FIRAuthErrors` for a list of error codes that are common to all `FIRUser` methods.
-    public func unlink(fromProvider provider: String) -> Future<User, Error> {
+    func unlink(fromProvider provider: String) -> Future<User, Error> {
       Future<User, Error> { promise in
         self.unlink(fromProvider: provider) { user, error in
-          if let user = user {
+          if let user {
             promise(.success(user))
-          } else if let error = error {
+          } else if let error {
             promise(.failure(error))
           }
         }
@@ -143,10 +146,10 @@
     ///   - `FIRAuthErrorCodeUserNotFound` - Indicates the user account was not found.
     ///
     ///   See `FIRAuthErrors` for a list of error codes that are common to all `FIRUser` methods.
-    public func sendEmailVerification() -> Future<Void, Error> {
+    func sendEmailVerification() -> Future<Void, Error> {
       Future<Void, Error> { promise in
         self.sendEmailVerification { error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
           } else {
             promise(.success(()))
@@ -159,8 +162,8 @@
     ///
     /// The publisher will emit events on the **main** thread.
     ///
-    /// - Parameter actionCodeSettings: An `FIRActionCodeSettings` object containing settings related to
-    ///   handling action codes.
+    /// - Parameter actionCodeSettings: An `FIRActionCodeSettings` object containing settings
+    ///    related to handling action codes.
     /// - Returns: A publisher that emits no type when the verification flow completed
     ///   successfully, or an error otherwise.
     ///
@@ -181,11 +184,11 @@
     ///    continue URL is not allowlisted in the Firebase console.
     ///   - `FIRAuthErrorCodeInvalidContinueURI` - Indicates that the domain specified in the
     ///    continue URI is not valid.
-    public func sendEmailVerification(with actionCodeSettings: ActionCodeSettings)
+    func sendEmailVerification(with actionCodeSettings: ActionCodeSettings)
       -> Future<Void, Error> {
       Future<Void, Error> { promise in
         self.sendEmailVerification(with: actionCodeSettings) { error in
-          if let error = error {
+          if let error {
             promise(.failure(error))
           } else {
             promise(.success(()))

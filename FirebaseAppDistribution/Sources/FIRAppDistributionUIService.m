@@ -15,7 +15,7 @@
 #import "FirebaseAppDistribution/Sources/FIRAppDistributionUIService.h"
 #import "FirebaseAppDistribution/Sources/FIRFADLogger.h"
 #import "FirebaseAppDistribution/Sources/Public/FirebaseAppDistribution/FIRAppDistribution.h"
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 #import <AuthenticationServices/AuthenticationServices.h>
 #import <SafariServices/SafariServices.h>
@@ -23,14 +23,7 @@
 
 @implementation FIRAppDistributionUIService
 
-API_AVAILABLE(ios(9.0))
-SFSafariViewController *_safariVC;
-
-API_AVAILABLE(ios(12.0))
 ASWebAuthenticationSession *_webAuthenticationVC;
-
-API_AVAILABLE(ios(11.0))
-SFAuthenticationSession *_safariAuthenticationVC;
 
 - (instancetype)init {
   self = [super init];
@@ -69,15 +62,8 @@ SFAuthenticationSession *_safariAuthenticationVC;
   if (!error) {
     return nil;
   }
-
-  if (@available(iOS 12.0, *)) {
-    if ([error code] == ASWebAuthenticationSessionErrorCodeCanceledLogin) {
-      return [self getAppDistributionError:FIRAppDistributionErrorAuthenticationCancelled];
-    }
-  } else if (@available(iOS 11.0, *)) {
-    if ([error code] == SFAuthenticationErrorCanceledLogin) {
-      return [self getAppDistributionError:FIRAppDistributionErrorAuthenticationCancelled];
-    }
+  if ([error code] == ASWebAuthenticationSessionErrorCodeCanceledLogin) {
+    return [self getAppDistributionError:FIRAppDistributionErrorAuthenticationCancelled];
   }
 
   return [self getAppDistributionError:FIRAppDistributionErrorAuthenticationFailure];
@@ -91,46 +77,24 @@ SFAuthenticationSession *_safariAuthenticationVC;
   FIRFADInfoLog(@"Registration URL: %@", URL);
   FIRFADInfoLog(@"Callback URL: %@", callbackURL);
 
-  if (@available(iOS 12.0, *)) {
-    ASWebAuthenticationSession *authenticationVC = [[ASWebAuthenticationSession alloc]
-              initWithURL:URL
-        callbackURLScheme:callbackURL
-        completionHandler:^(NSURL *_Nullable callbackURL, NSError *_Nullable error) {
-          [self resetUIState];
-          [self logRegistrationCompletion:error authType:[ASWebAuthenticationSession description]];
-          NSError *_Nullable appDistributionError =
-              [[self class] mapErrorToAppDistributionError:error];
-          completion(appDistributionError);
-        }];
+  ASWebAuthenticationSession *authenticationVC = [[ASWebAuthenticationSession alloc]
+            initWithURL:URL
+      callbackURLScheme:callbackURL
+      completionHandler:^(NSURL *_Nullable callbackURL, NSError *_Nullable error) {
+        [self resetUIState];
+        [self logRegistrationCompletion:error authType:[ASWebAuthenticationSession description]];
+        NSError *_Nullable appDistributionError =
+            [[self class] mapErrorToAppDistributionError:error];
+        completion(appDistributionError);
+      }];
 
-    if (@available(iOS 13.0, *)) {
-      authenticationVC.presentationContextProvider = self;
-    }
-
-    _webAuthenticationVC = authenticationVC;
-
-    [authenticationVC start];
-  } else if (@available(iOS 11.0, *)) {
-    _safariAuthenticationVC = [[SFAuthenticationSession alloc]
-              initWithURL:URL
-        callbackURLScheme:callbackURL
-        completionHandler:^(NSURL *_Nullable callbackURL, NSError *_Nullable error) {
-          [self resetUIState];
-          [self logRegistrationCompletion:error authType:[SFAuthenticationSession description]];
-          NSError *_Nullable appDistributionError =
-              [[self class] mapErrorToAppDistributionError:error];
-          completion(appDistributionError);
-        }];
-
-    [_safariAuthenticationVC start];
-  } else if (@available(iOS 9.0, *)) {
-    SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:URL];
-
-    safariVC.delegate = self;
-    _safariVC = safariVC;
-    [self->_safariHostingViewController presentViewController:safariVC animated:YES completion:nil];
-    self.registrationFlowCompletion = completion;
+  if (@available(iOS 13.0, *)) {
+    authenticationVC.presentationContextProvider = self;
   }
+
+  _webAuthenticationVC = authenticationVC;
+
+  [authenticationVC start];
 }
 
 - (void)showUIAlert:(UIAlertController *)alertController {
@@ -179,9 +143,7 @@ SFAuthenticationSession *_safariAuthenticationVC;
   if (self.registrationFlowCompletion) {
     FIRFADDebugLog(@"Continuing registration flow: %@", [self registrationFlowCompletion]);
     [self resetUIState];
-    if (@available(iOS 9.0, *)) {
-      [self logRegistrationCompletion:nil authType:[SFSafariViewController description]];
-    }
+    [self logRegistrationCompletion:nil authType:[SFSafariViewController description]];
     self.registrationFlowCompletion(nil);
   }
   return NO;
@@ -213,7 +175,15 @@ SFAuthenticationSession *_safariAuthenticationVC;
 
     if (foregroundedScene) {
       self.window = [[UIWindow alloc] initWithWindowScene:foregroundedScene];
+    } else if ([UIApplication sharedApplication].connectedScenes.count == 1) {
+      // There are situations where a scene isn't considered foreground in viewDidAppear
+      // and this fixes the issue in single scene apps.
+      // https://github.com/firebase/firebase-ios-sdk/issues/8096
+      UIWindowScene *scene =
+          (UIWindowScene *)[UIApplication sharedApplication].connectedScenes.anyObject;
+      self.window = [[UIWindow alloc] initWithWindowScene:scene];
     } else {
+      // TODO: Consider using UISceneDidActivateNotification.
       FIRFADInfoLog(@"No foreground scene found.");
       self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     }
@@ -238,16 +208,10 @@ SFAuthenticationSession *_safariAuthenticationVC;
 
   self.registrationFlowCompletion = nil;
 
-  if (@available(iOS 11.0, *)) {
-    _safariAuthenticationVC = nil;
-  } else if (@available(iOS 12.0, *)) {
-    _webAuthenticationVC = nil;
-  } else if (@available(iOS 9.0, *)) {
-    _safariVC = nil;
-  }
+  _webAuthenticationVC = nil;
 }
 
-- (void)safariViewControllerDidFinish:(SFSafariViewController *)controller NS_AVAILABLE_IOS(9.0) {
+- (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
   NSError *error =
       [[self class] getAppDistributionError:FIRAppDistributionErrorAuthenticationCancelled];
   [self logRegistrationCompletion:error authType:[SFSafariViewController description]];

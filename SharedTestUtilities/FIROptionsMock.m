@@ -14,14 +14,12 @@
 
 #import <OCMock/OCMock.h>
 
-#import "FirebaseCore/Sources/Private/FIROptionsInternal.h"
+#import "FirebaseCore/Sources/Public/FirebaseCore/FIROptions.h"
 #import "SharedTestUtilities/FIROptionsMock.h"
 
-NSString *const kAndroidClientID = @"correct_android_client_id";
 NSString *const kAPIKey = @"correct_api_key";
 NSString *const kCustomizedAPIKey = @"customized_api_key";
 NSString *const kClientID = @"correct_client_id";
-NSString *const kTrackingID = @"correct_tracking_id";
 NSString *const kGCMSenderID = @"correct_gcm_sender_id";
 NSString *const kGoogleAppID = @"1:123:ios:123abc";
 NSString *const kDatabaseURL = @"https://abc-xyz-123.firebaseio.com";
@@ -32,6 +30,24 @@ NSString *const kNewDeepLinkURLScheme = @"newdeeplinkurlfortest";
 
 NSString *const kBundleID = @"com.google.FirebaseSDKTests";
 NSString *const kProjectID = @"abc-xyz-123";
+
+/**
+ * Keys for the strings in the plist file.
+ */
+extern NSString *const kFIRAPIKey;
+extern NSString *const kFIRTrackingID;
+extern NSString *const kFIRGoogleAppID;
+extern NSString *const kFIRClientID;
+extern NSString *const kFIRGCMSenderID;
+extern NSString *const kFIRAndroidClientID;
+extern NSString *const kFIRDatabaseURL;
+extern NSString *const kFIRStorageBucket;
+extern NSString *const kFIRBundleID;
+extern NSString *const kFIRProjectID;
+
+@interface FIROptions ()
++ (NSDictionary *)defaultOptionsDictionary;
+@end
 
 @interface FIROptionsMock ()
 
@@ -50,7 +66,6 @@ NSString *const kProjectID = @"abc-xyz-123";
     kFIRGoogleAppID : kGoogleAppID,
     kFIRProjectID : kProjectID,
     kFIRStorageBucket : kStorageBucket,
-    kFIRTrackingID : kTrackingID,
   };
   id optionsClassMock = OCMClassMock([FIROptions class]);
   OCMStub([optionsClassMock defaultOptionsDictionary]).andReturn(mockDictionary);

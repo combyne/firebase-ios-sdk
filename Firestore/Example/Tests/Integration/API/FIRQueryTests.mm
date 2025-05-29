@@ -18,11 +18,14 @@
 
 #import <XCTest/XCTest.h>
 
-#import "Firestore/Source/API/FIRQuery+Internal.h"
-
 #import "Firestore/Example/Tests/Util/FSTEventAccumulator.h"
 #import "Firestore/Example/Tests/Util/FSTHelpers.h"
 #import "Firestore/Example/Tests/Util/FSTIntegrationTestCase.h"
+#import "Firestore/Example/Tests/Util/FSTTestingHooks.h"
+
+// TODO(MIEQ) update these imports with public imports when aggregate types are public
+#import "Firestore/Source/API/FIRAggregateQuerySnapshot+Internal.h"
+#import "Firestore/Source/API/FIRQuery+Internal.h"
 
 @interface FIRQueryTests : FSTIntegrationTestCase
 @end
@@ -132,6 +135,49 @@
   snapshot = [limitToLastAccumulator awaitEventWithName:@"Snapshot"];
   expected = @[ @{@"k" : @"e", @"sort" : @-1}, @{@"k" : @"a", @"sort" : @-2} ];
   XCTAssertEqualObjects(FIRQuerySnapshotGetData(snapshot), expected);
+}
+
+- (void)testLimitToLastQueriesWithCursors {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"a" : @{@"k" : @"a", @"sort" : @0},
+    @"b" : @{@"k" : @"b", @"sort" : @1},
+    @"c" : @{@"k" : @"c", @"sort" : @1},
+    @"d" : @{@"k" : @"d", @"sort" : @2},
+  }];
+
+  FIRQuerySnapshot *snapshot =
+      [self readDocumentSetForRef:[[[collRef queryOrderedByField:@"sort"] queryLimitedToLast:3]
+                                      queryEndingBeforeValues:@[ @2 ]]];
+  XCTAssertEqualObjects(
+      FIRQuerySnapshotGetData(snapshot), (@[
+        @{@"k" : @"a", @"sort" : @0}, @{@"k" : @"b", @"sort" : @1}, @{@"k" : @"c", @"sort" : @1}
+      ]));
+
+  snapshot = [self readDocumentSetForRef:[[[collRef queryOrderedByField:@"sort"]
+                                             queryLimitedToLast:3] queryEndingAtValues:@[ @1 ]]];
+  XCTAssertEqualObjects(
+      FIRQuerySnapshotGetData(snapshot), (@[
+        @{@"k" : @"a", @"sort" : @0}, @{@"k" : @"b", @"sort" : @1}, @{@"k" : @"c", @"sort" : @1}
+      ]));
+
+  snapshot = [self readDocumentSetForRef:[[[collRef queryOrderedByField:@"sort"]
+                                             queryLimitedToLast:3] queryStartingAtValues:@[ @2 ]]];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetData(snapshot), (@[ @{@"k" : @"d", @"sort" : @2} ]));
+  snapshot =
+      [self readDocumentSetForRef:[[[collRef queryOrderedByField:@"sort"] queryLimitedToLast:3]
+                                      queryStartingAfterValues:@[ @0 ]]];
+  XCTAssertEqualObjects(
+      FIRQuerySnapshotGetData(snapshot), (@[
+        @{@"k" : @"b", @"sort" : @1}, @{@"k" : @"c", @"sort" : @1}, @{@"k" : @"d", @"sort" : @2}
+      ]));
+
+  snapshot =
+      [self readDocumentSetForRef:[[[collRef queryOrderedByField:@"sort"] queryLimitedToLast:3]
+                                      queryStartingAfterValues:@[ @-1 ]]];
+  XCTAssertEqualObjects(
+      FIRQuerySnapshotGetData(snapshot), (@[
+        @{@"k" : @"b", @"sort" : @1}, @{@"k" : @"c", @"sort" : @1}, @{@"k" : @"d", @"sort" : @2}
+      ]));
 }
 
 - (void)testKeyOrderIsDescendingForDescendingInequality {
@@ -332,6 +378,50 @@
   [registration remove];
 }
 
+- (void)testQueriesCanRaiseInitialSnapshotFromCachedEmptyResults {
+  FIRCollectionReference *collection = [self collectionRefWithDocuments:@{}];
+
+  // Populate the cache with empty query result.
+  FIRQuerySnapshot *querySnapshotA = [self readDocumentSetForRef:collection];
+  XCTAssertFalse(querySnapshotA.metadata.fromCache);
+  XCTAssertEqualObjects(FIRQuerySnapshotGetData(querySnapshotA), @[]);
+
+  // Add a snapshot listener whose first event should be raised from cache.
+  id<FIRListenerRegistration> registration = [collection
+      addSnapshotListenerWithIncludeMetadataChanges:YES
+                                           listener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *querySnapshotB = [self.eventAccumulator awaitEventWithName:@"initial event"];
+  XCTAssertTrue(querySnapshotB.metadata.fromCache);
+  XCTAssertEqualObjects(FIRQuerySnapshotGetData(querySnapshotB), @[]);
+
+  [registration remove];
+}
+
+- (void)testQueriesCanRaiseInitialSnapshotFromEmptyDueToDeleteCachedResults {
+  NSDictionary *testDocs = @{
+    @"a" : @{@"foo" : @1},
+  };
+  FIRCollectionReference *collection = [self collectionRefWithDocuments:testDocs];
+  // Populate the cache with a single document.
+  FIRQuerySnapshot *querySnapshotA = [self readDocumentSetForRef:collection];
+  XCTAssertFalse(querySnapshotA.metadata.fromCache);
+  XCTAssertEqualObjects(FIRQuerySnapshotGetData(querySnapshotA), @[ @{@"foo" : @1} ]);
+
+  // Delete the document, making the cached query result empty.
+  FIRDocumentReference *docRef = [collection documentWithPath:@"a"];
+  [self deleteDocumentRef:docRef];
+
+  // Add a snapshot listener whose first event should be raised from cache.
+  id<FIRListenerRegistration> registration = [collection
+      addSnapshotListenerWithIncludeMetadataChanges:YES
+                                           listener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *querySnapshotB = [self.eventAccumulator awaitEventWithName:@"initial event"];
+  XCTAssertTrue(querySnapshotB.metadata.fromCache);
+  XCTAssertEqualObjects(FIRQuerySnapshotGetData(querySnapshotB), @[]);
+
+  [registration remove];
+}
+
 - (void)testDocumentChangesUseNSNotFound {
   NSDictionary *testDocs = @{
     @"a" : @{@"foo" : @1},
@@ -445,6 +535,38 @@
                                                      isNotEqualTo:@"aa"]];
   XCTAssertEqualObjects(FIRQuerySnapshotGetData(snapshot),
                         (@[ testDocs[@"ab"], testDocs[@"ba"], testDocs[@"bb"] ]));
+}
+
+- (void)testSDKUsesNotEqualFiltersSameAsServer {
+  NSDictionary *testDocs = @{
+    @"a" : @{@"zip" : @(NAN)},
+    @"b" : @{@"zip" : @91102},
+    @"c" : @{@"zip" : @98101},
+    @"d" : @{@"zip" : @"98101"},
+    @"e" : @{@"zip" : @[ @98101 ]},
+    @"f" : @{@"zip" : @[ @98101, @98102 ]},
+    @"g" : @{@"zip" : @[ @"98101", @{@"zip" : @98101} ]},
+    @"h" : @{@"zip" : @{@"code" : @500}},
+    @"i" : @{@"zip" : [NSNull null]},
+    @"j" : @{@"code" : @500},
+  };
+  FIRCollectionReference *collection = [self collectionRefWithDocuments:testDocs];
+
+  // populate cache with all documents first to ensure getDocsFromCache() scans all docs
+  [self readDocumentSetForRef:collection];
+
+  [self checkOnlineAndOfflineCollection:collection
+                                  query:[collection queryWhereField:@"zip" isNotEqualTo:@98101]
+                          matchesResult:@[ @"a", @"b", @"d", @"e", @"f", @"g", @"h" ]];
+
+  [self checkOnlineAndOfflineCollection:collection
+                                  query:[collection queryWhereField:@"zip" isNotEqualTo:@(NAN)]
+                          matchesResult:@[ @"b", @"c", @"d", @"e", @"f", @"g", @"h" ]];
+
+  [self checkOnlineAndOfflineCollection:collection
+                                  query:[collection queryWhereField:@"zip"
+                                                       isNotEqualTo:@[ [NSNull null] ]]
+                          matchesResult:@[ @"a", @"b", @"c", @"d", @"e", @"f", @"g", @"h" ]];
 }
 
 - (void)testQueriesCanUseArrayContainsFilters {
@@ -604,6 +726,36 @@
   XCTAssertEqualObjects(FIRQuerySnapshotGetData(snapshot), (@[ testDocs[@"ba"], testDocs[@"bb"] ]));
 }
 
+- (void)testSDKUsesNotInFiltersSameAsServer {
+  NSDictionary *testDocs = @{
+    @"a" : @{@"zip" : @(NAN)},
+    @"b" : @{@"zip" : @91102},
+    @"c" : @{@"zip" : @98101},
+    @"d" : @{@"zip" : @"98101"},
+    @"e" : @{@"zip" : @[ @98101 ]},
+    @"f" : @{@"zip" : @[ @98101, @98102 ]},
+    @"g" : @{@"zip" : @[ @"98101", @{@"zip" : @98101} ]},
+    @"h" : @{@"zip" : @{@"code" : @500}},
+    @"i" : @{@"zip" : [NSNull null]},
+    @"j" : @{@"code" : @500},
+  };
+  FIRCollectionReference *collection = [self collectionRefWithDocuments:testDocs];
+
+  // populate cache with all documents first to ensure getDocsFromCache() scans all docs
+  [self readDocumentSetForRef:collection];
+
+  [self
+      checkOnlineAndOfflineCollection:collection
+                                query:[collection
+                                          queryWhereField:@"zip"
+                                                    notIn:@[ @98101, @98103, @[ @98101, @98102 ] ]]
+                        matchesResult:@[ @"a", @"b", @"d", @"e", @"g", @"h" ]];
+
+  [self checkOnlineAndOfflineCollection:collection
+                                  query:[collection queryWhereField:@"zip" notIn:@[ [NSNull null] ]]
+                          matchesResult:@[]];
+}
+
 - (void)testQueriesCanUseArrayContainsAnyFilters {
   NSDictionary *testDocs = @{
     @"a" : @{@"array" : @[ @42 ]},
@@ -674,12 +826,7 @@
                                                         withString:collectionGroup];
     [batch setData:@{@"x" : @1} forDocument:[self.db documentWithPath:path]];
   }
-  XCTestExpectation *expectation = [self expectationWithDescription:@"batch written"];
-  [batch commitWithCompletion:^(NSError *error) {
-    XCTAssertNil(error);
-    [expectation fulfill];
-  }];
-  [self awaitExpectations];
+  [self commitWriteBatch:batch];
 
   FIRQuerySnapshot *querySnapshot =
       [self readDocumentSetForRef:[self.db collectionGroupWithID:collectionGroup]];
@@ -705,12 +852,7 @@
                                                         withString:collectionGroup];
     [batch setData:@{@"x" : @1} forDocument:[self.db documentWithPath:path]];
   }
-  XCTestExpectation *expectation = [self expectationWithDescription:@"batch written"];
-  [batch commitWithCompletion:^(NSError *error) {
-    XCTAssertNil(error);
-    [expectation fulfill];
-  }];
-  [self awaitExpectations];
+  [self commitWriteBatch:batch];
 
   FIRQuerySnapshot *querySnapshot = [self
       readDocumentSetForRef:[[[[self.db collectionGroupWithID:collectionGroup]
@@ -722,6 +864,235 @@
 
   NSArray<NSString *> *ids = FIRQuerySnapshotGetIDs(querySnapshot);
   XCTAssertEqualObjects(ids, (@[ @"cg-doc2" ]));
+}
+
+- (void)testSnapshotListenerSortsQueryByDocumentIdInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"A" : @{@"a" : @1},
+    @"a" : @{@"a" : @1},
+    @"Aa" : @{@"a" : @1},
+    @"7" : @{@"a" : @1},
+    @"12" : @{@"a" : @1},
+    @"__id7__" : @{@"a" : @1},
+    @"__id12__" : @{@"a" : @1},
+    @"__id-2__" : @{@"a" : @1},
+    @"__id1_" : @{@"a" : @1},
+    @"_id1__" : @{@"a" : @1},
+    @"__id" : @{@"a" : @1},
+    @"__id9223372036854775807__" : @{@"a" : @1},
+    @"__id-9223372036854775808__" : @{@"a" : @1},
+  }];
+
+  FIRQuery *query = [collRef queryOrderedByFieldPath:[FIRFieldPath documentID]];
+  NSArray<NSString *> *expectedDocs = @[
+    @"__id-9223372036854775808__", @"__id-2__", @"__id7__", @"__id12__",
+    @"__id9223372036854775807__", @"12", @"7", @"A", @"Aa", @"__id", @"__id1_", @"_id1__", @"a"
+  ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+}
+
+- (void)testSnapshotListenerSortsFilteredQueryByDocumentIdInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"A" : @{@"a" : @1},
+    @"a" : @{@"a" : @1},
+    @"Aa" : @{@"a" : @1},
+    @"7" : @{@"a" : @1},
+    @"12" : @{@"a" : @1},
+    @"__id7__" : @{@"a" : @1},
+    @"__id12__" : @{@"a" : @1},
+    @"__id-2__" : @{@"a" : @1},
+    @"__id1_" : @{@"a" : @1},
+    @"_id1__" : @{@"a" : @1},
+    @"__id" : @{@"a" : @1},
+    @"__id9223372036854775807__" : @{@"a" : @1},
+    @"__id-9223372036854775808__" : @{@"a" : @1},
+  }];
+
+  FIRQuery *query = [[[collRef queryWhereFieldPath:[FIRFieldPath documentID]
+                                     isGreaterThan:@"__id7__"]
+      queryWhereFieldPath:[FIRFieldPath documentID]
+      isLessThanOrEqualTo:@"A"] queryOrderedByFieldPath:[FIRFieldPath documentID]];
+  NSArray<NSString *> *expectedDocs =
+      @[ @"__id12__", @"__id9223372036854775807__", @"12", @"7", @"A" ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+}
+
+- (void)testSdkOrdersQueryByDocumentIdTheSameWayOnlineAndOffline {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"A" : @{@"a" : @1},
+    @"a" : @{@"a" : @1},
+    @"Aa" : @{@"a" : @1},
+    @"7" : @{@"a" : @1},
+    @"12" : @{@"a" : @1},
+    @"__id7__" : @{@"a" : @1},
+    @"__id12__" : @{@"a" : @1},
+    @"__id-2__" : @{@"a" : @1},
+    @"__id1_" : @{@"a" : @1},
+    @"_id1__" : @{@"a" : @1},
+    @"__id" : @{@"a" : @1},
+    @"__id9223372036854775807__" : @{@"a" : @1},
+    @"__id-9223372036854775808__" : @{@"a" : @1},
+  }];
+
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryOrderedByFieldPath:[FIRFieldPath documentID]]
+                          matchesResult:@[
+                            @"__id-9223372036854775808__", @"__id-2__", @"__id7__", @"__id12__",
+                            @"__id9223372036854775807__", @"12", @"7", @"A", @"Aa", @"__id",
+                            @"__id1_", @"_id1__", @"a"
+                          ]];
+}
+
+- (void)testSnapshotListenerSortsUnicodeStringsInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"a" : @{@"value" : @"Łukasiewicz"},
+    @"b" : @{@"value" : @"Sierpiński"},
+    @"c" : @{@"value" : @"岩澤"},
+    @"d" : @{@"value" : @"🄟"},
+    @"e" : @{@"value" : @"Ｐ"},
+    @"f" : @{@"value" : @"︒"},
+    @"g" : @{@"value" : @"🐵"}
+
+  }];
+
+  FIRQuery *query = [collRef queryOrderedByField:@"value"];
+  NSArray<NSString *> *expectedDocs = @[ @"b", @"a", @"c", @"f", @"e", @"d", @"g" ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+
+  [self checkOnlineAndOfflineCollection:collRef query:query matchesResult:expectedDocs];
+}
+
+- (void)testSnapshotListenerSortsUnicodeStringsInArrayInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"a" : @{@"value" : @[ @"Łukasiewicz" ]},
+    @"b" : @{@"value" : @[ @"Sierpiński" ]},
+    @"c" : @{@"value" : @[ @"岩澤" ]},
+    @"d" : @{@"value" : @[ @"🄟" ]},
+    @"e" : @{@"value" : @[ @"Ｐ" ]},
+    @"f" : @{@"value" : @[ @"︒" ]},
+    @"g" : @{@"value" : @[ @"🐵" ]}
+
+  }];
+
+  FIRQuery *query = [collRef queryOrderedByField:@"value"];
+  NSArray<NSString *> *expectedDocs = @[ @"b", @"a", @"c", @"f", @"e", @"d", @"g" ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+
+  [self checkOnlineAndOfflineCollection:collRef query:query matchesResult:expectedDocs];
+}
+
+- (void)testSnapshotListenerSortsUnicodeStringsInMapInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"a" : @{@"value" : @{@"foo" : @"Łukasiewicz"}},
+    @"b" : @{@"value" : @{@"foo" : @"Sierpiński"}},
+    @"c" : @{@"value" : @{@"foo" : @"岩澤"}},
+    @"d" : @{@"value" : @{@"foo" : @"🄟"}},
+    @"e" : @{@"value" : @{@"foo" : @"Ｐ"}},
+    @"f" : @{@"value" : @{@"foo" : @"︒"}},
+    @"g" : @{@"value" : @{@"foo" : @"🐵"}}
+
+  }];
+
+  FIRQuery *query = [collRef queryOrderedByField:@"value"];
+  NSArray<NSString *> *expectedDocs = @[ @"b", @"a", @"c", @"f", @"e", @"d", @"g" ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+
+  [self checkOnlineAndOfflineCollection:collRef query:query matchesResult:expectedDocs];
+}
+
+- (void)testSnapshotListenerSortsUnicodeStringsInMapKeyInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"a" : @{@"value" : @{@"Łukasiewicz" : @"foo"}},
+    @"b" : @{@"value" : @{@"Sierpiński" : @"foo"}},
+    @"c" : @{@"value" : @{@"岩澤" : @"foo"}},
+    @"d" : @{@"value" : @{@"🄟" : @"foo"}},
+    @"e" : @{@"value" : @{@"Ｐ" : @"foo"}},
+    @"f" : @{@"value" : @{@"︒" : @"foo"}},
+    @"g" : @{@"value" : @{@"🐵" : @"foo"}}
+
+  }];
+
+  FIRQuery *query = [collRef queryOrderedByField:@"value"];
+  NSArray<NSString *> *expectedDocs = @[ @"b", @"a", @"c", @"f", @"e", @"d", @"g" ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+
+  [self checkOnlineAndOfflineCollection:collRef query:query matchesResult:expectedDocs];
+}
+
+- (void)testSnapshotListenerSortsUnicodeStringsInDocumentKeyInTheSameOrderAsServer {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"Łukasiewicz" : @{@"value" : @"foo"},
+    @"Sierpiński" : @{@"value" : @"foo"},
+    @"岩澤" : @{@"value" : @"foo"},
+    @"🄟" : @{@"value" : @"foo"},
+    @"Ｐ" : @{@"value" : @"foo"},
+    @"︒" : @{@"value" : @"foo"},
+    @"🐵" : @{@"value" : @"foo"}
+
+  }];
+
+  FIRQuery *query = [collRef queryOrderedByFieldPath:[FIRFieldPath documentID]];
+  NSArray<NSString *> *expectedDocs =
+      @[ @"Sierpiński", @"Łukasiewicz", @"岩澤", @"︒", @"Ｐ", @"🄟", @"🐵" ];
+  FIRQuerySnapshot *getSnapshot = [self readDocumentSetForRef:query];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(getSnapshot), expectedDocs);
+
+  id<FIRListenerRegistration> registration =
+      [query addSnapshotListener:self.eventAccumulator.valueEventHandler];
+  FIRQuerySnapshot *watchSnapshot = [self.eventAccumulator awaitEventWithName:@"Snapshot"];
+  XCTAssertEqualObjects(FIRQuerySnapshotGetIDs(watchSnapshot), expectedDocs);
+
+  [registration remove];
+
+  [self checkOnlineAndOfflineCollection:collRef query:query matchesResult:expectedDocs];
 }
 
 - (void)testCollectionGroupQueriesWithWhereFiltersOnArbitraryDocumentIDs {
@@ -742,12 +1113,7 @@
                                                         withString:collectionGroup];
     [batch setData:@{@"x" : @1} forDocument:[self.db documentWithPath:path]];
   }
-  XCTestExpectation *expectation = [self expectationWithDescription:@"batch written"];
-  [batch commitWithCompletion:^(NSError *error) {
-    XCTAssertNil(error);
-    [expectation fulfill];
-  }];
-  [self awaitExpectations];
+  [self commitWriteBatch:batch];
 
   FIRQuerySnapshot *querySnapshot = [self
       readDocumentSetForRef:[[[self.db collectionGroupWithID:collectionGroup]
@@ -759,6 +1125,670 @@
 
   NSArray<NSString *> *ids = FIRQuerySnapshotGetIDs(querySnapshot);
   XCTAssertEqualObjects(ids, (@[ @"cg-doc2" ]));
+}
+
+- (void)testOrQueries {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @0},
+    @"doc2" : @{@"a" : @2, @"b" : @1},
+    @"doc3" : @{@"a" : @3, @"b" : @2},
+    @"doc4" : @{@"a" : @1, @"b" : @3},
+    @"doc5" : @{@"a" : @1, @"b" : @1}
+  }];
+
+  // Two equalities: a==1 || b==1.
+  FIRFilter *filter1 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" isEqualTo:@1], [FIRFilter filterWhereField:@"b" isEqualTo:@1]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter1]
+                          matchesResult:@[ @"doc1", @"doc2", @"doc4", @"doc5" ]];
+
+  // (a==1 && b==0) || (a==3 && b==2)
+  FIRFilter *filter2 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter andFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"a" isEqualTo:@1], [FIRFilter filterWhereField:@"b" isEqualTo:@0]
+    ]],
+    [FIRFilter andFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"a" isEqualTo:@3], [FIRFilter filterWhereField:@"b" isEqualTo:@2]
+    ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter2]
+                          matchesResult:@[ @"doc1", @"doc3" ]];
+
+  // a==1 && (b==0 || b==3).
+  FIRFilter *filter3 = [FIRFilter andFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" isEqualTo:@1], [FIRFilter orFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"b" isEqualTo:@0], [FIRFilter filterWhereField:@"b" isEqualTo:@3]
+    ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter3]
+                          matchesResult:@[ @"doc1", @"doc4" ]];
+
+  // (a==2 || b==2) && (a==3 || b==3)
+  FIRFilter *filter4 = [FIRFilter andFilterWithFilters:@[
+    [FIRFilter orFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"a" isEqualTo:@2], [FIRFilter filterWhereField:@"b" isEqualTo:@2]
+    ]],
+    [FIRFilter orFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"a" isEqualTo:@3], [FIRFilter filterWhereField:@"b" isEqualTo:@3]
+    ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter4]
+                          matchesResult:@[ @"doc3" ]];
+
+  // Test with limits without orderBy (the __name__ ordering is the tie breaker).
+  FIRFilter *filter5 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" isEqualTo:@2], [FIRFilter filterWhereField:@"b" isEqualTo:@1]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[[collRef queryWhereFilter:filter5] queryLimitedTo:1]
+                          matchesResult:@[ @"doc2" ]];
+}
+
+- (void)testOrQueriesWithIn {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @0},
+    @"doc2" : @{@"b" : @1},
+    @"doc3" : @{@"a" : @3, @"b" : @2},
+    @"doc4" : @{@"a" : @1, @"b" : @3},
+    @"doc5" : @{@"a" : @1},
+    @"doc6" : @{@"a" : @2}
+  }];
+
+  // a==2 || b in [2,3]
+  FIRFilter *filter = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" isEqualTo:@2], [FIRFilter filterWhereField:@"b" in:@[ @2, @3 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter]
+                          matchesResult:@[ @"doc3", @"doc4", @"doc6" ]];
+}
+
+- (void)testOrQueriesWithArrayMembership {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @[ @0 ]},
+    @"doc2" : @{@"b" : @[ @1 ]},
+    @"doc3" : @{@"a" : @3, @"b" : @[ @2, @7 ]},
+    @"doc4" : @{@"a" : @1, @"b" : @[ @3, @7 ]},
+    @"doc5" : @{@"a" : @1},
+    @"doc6" : @{@"a" : @2}
+  }];
+
+  // a==2 || b array-contains 7
+  FIRFilter *filter1 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" isEqualTo:@2], [FIRFilter filterWhereField:@"b"
+                                                                  arrayContains:@7]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter1]
+                          matchesResult:@[ @"doc3", @"doc4", @"doc6" ]];
+
+  // a==2 || b array-contains-any [0, 3]
+  FIRFilter *filter2 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" isEqualTo:@2], [FIRFilter filterWhereField:@"b"
+                                                               arrayContainsAny:@[ @0, @3 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter2]
+                          matchesResult:@[ @"doc1", @"doc4", @"doc6" ]];
+}
+
+- (void)testMultipleInOps {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @0},
+    @"doc2" : @{@"b" : @1},
+    @"doc3" : @{@"a" : @3, @"b" : @2},
+    @"doc4" : @{@"a" : @1, @"b" : @3},
+    @"doc5" : @{@"a" : @1},
+    @"doc6" : @{@"a" : @2}
+  }];
+
+  // Two IN operations on different fields with disjunction.
+  FIRFilter *filter1 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter filterWhereField:@"b"
+                                                                               in:@[ @0, @2 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter1]
+                          matchesResult:@[ @"doc1", @"doc3", @"doc6" ]];
+
+  // Two IN operations on the same field with disjunction.
+  // a IN [0,3] || a IN [0,2] should union them (similar to: a IN [0,2,3]).
+  FIRFilter *filter2 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @0, @3 ]], [FIRFilter filterWhereField:@"a"
+                                                                               in:@[ @0, @2 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter2]
+                          matchesResult:@[ @"doc3", @"doc6" ]];
+}
+
+- (void)testUsingInWithArrayContainsAny {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @[ @0 ]},
+    @"doc2" : @{@"b" : @[ @1 ]},
+    @"doc3" : @{@"a" : @3, @"b" : @[ @2, @7 ], @"c" : @10},
+    @"doc4" : @{@"a" : @1, @"b" : @[ @3, @7 ]},
+    @"doc5" : @{@"a" : @1},
+    @"doc6" : @{@"a" : @2, @"c" : @20}
+  }];
+
+  FIRFilter *filter1 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter filterWhereField:@"b"
+                                                                 arrayContainsAny:@[ @0, @7 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter1]
+                          matchesResult:@[ @"doc1", @"doc3", @"doc4", @"doc6" ]];
+
+  FIRFilter *filter2 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter andFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter filterWhereField:@"c"
+                                                                          isEqualTo:@10]
+    ]],
+    [FIRFilter filterWhereField:@"b" arrayContainsAny:@[ @0, @7 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter2]
+                          matchesResult:@[ @"doc1", @"doc3", @"doc4" ]];
+}
+
+- (void)testUseInWithArrayContains {
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @[ @0 ]},
+    @"doc2" : @{@"b" : @[ @1 ]},
+    @"doc3" : @{@"a" : @3, @"b" : @[ @2, @7 ]},
+    @"doc4" : @{@"a" : @1, @"b" : @[ @3, @7 ]},
+    @"doc5" : @{@"a" : @1},
+    @"doc6" : @{@"a" : @2}
+  }];
+
+  FIRFilter *filter1 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter filterWhereField:@"b"
+                                                                 arrayContainsAny:@[ @3 ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter1]
+                          matchesResult:@[ @"doc3", @"doc4", @"doc6" ]];
+
+  FIRFilter *filter2 = [FIRFilter andFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter filterWhereField:@"b"
+                                                                    arrayContains:@7]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter2]
+                          matchesResult:@[ @"doc3" ]];
+
+  FIRFilter *filter3 = [FIRFilter orFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter andFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"b" arrayContains:@3], [FIRFilter filterWhereField:@"a"
+                                                                            isEqualTo:@1]
+    ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter3]
+                          matchesResult:@[ @"doc3", @"doc4", @"doc6" ]];
+
+  FIRFilter *filter4 = [FIRFilter andFilterWithFilters:@[
+    [FIRFilter filterWhereField:@"a" in:@[ @2, @3 ]], [FIRFilter orFilterWithFilters:@[
+      [FIRFilter filterWhereField:@"b" arrayContains:@7], [FIRFilter filterWhereField:@"a"
+                                                                            isEqualTo:@1]
+    ]]
+  ]];
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[collRef queryWhereFilter:filter4]
+                          matchesResult:@[ @"doc3" ]];
+}
+
+- (void)testOrderByEquality {
+  // TODO(orquery): Enable this test against production when possible.
+  XCTSkipIf(![FSTIntegrationTestCase isRunningAgainstEmulator],
+            "Skip this test if running against production because order-by-equality is not "
+            "supported yet.");
+
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:@{
+    @"doc1" : @{@"a" : @1, @"b" : @[ @0 ]},
+    @"doc2" : @{@"b" : @[ @1 ]},
+    @"doc3" : @{@"a" : @3, @"b" : @[ @2, @7 ], @"c" : @10},
+    @"doc4" : @{@"a" : @1, @"b" : @[ @3, @7 ]},
+    @"doc5" : @{@"a" : @1},
+    @"doc6" : @{@"a" : @2, @"c" : @20}
+  }];
+
+  [self checkOnlineAndOfflineCollection:collRef
+                                  query:[[collRef queryWhereFilter:[FIRFilter filterWhereField:@"a"
+                                                                                     isEqualTo:@1]]
+                                            queryOrderedByField:@"a"]
+                          matchesResult:@[ @"doc1", @"doc4", @"doc5" ]];
+
+  [self
+      checkOnlineAndOfflineCollection:collRef
+                                query:[[collRef
+                                          queryWhereFilter:[FIRFilter filterWhereField:@"a"
+                                                                                    in:@[ @2, @3 ]]]
+                                          queryOrderedByField:@"a"]
+                        matchesResult:@[ @"doc6", @"doc3" ]];
+}
+
+- (void)testResumingAQueryShouldUseBloomFilterToAvoidFullRequery {
+  // TODO(b/291365820): Stop skipping this test when running against the Firestore emulator once
+  // the emulator is improved to include a bloom filter in the existence filter messages that it
+  // sends.
+  XCTSkipIf([FSTIntegrationTestCase isRunningAgainstEmulator],
+            "Skip this test when running against the Firestore emulator because the emulator does "
+            "not include a bloom filter when it sends existence filter messages, making it "
+            "impossible for this test to verify the correctness of the bloom filter.");
+
+  // Set this test to stop when the first failure occurs because some test assertion failures make
+  // the rest of the test not applicable or will even crash.
+  [self setContinueAfterFailure:NO];
+
+  // Prepare the names and contents of the 100 documents to create.
+  NSMutableDictionary<NSString *, NSDictionary<NSString *, id> *> *testDocs =
+      [[NSMutableDictionary alloc] init];
+  for (int i = 0; i < 100; i++) {
+    [testDocs setValue:@{@"key" : @42} forKey:[NSString stringWithFormat:@"doc%@", @(1000 + i)]];
+  }
+
+  // Each iteration of the "while" loop below runs a single iteration of the test. The test will
+  // be run multiple times only if a bloom filter false positive occurs.
+  int attemptNumber = 0;
+  while (true) {
+    attemptNumber++;
+
+    // Create 100 documents in a new collection.
+    FIRCollectionReference *collRef = [self collectionRefWithDocuments:testDocs];
+
+    // Run a query to populate the local cache with the 100 documents and a resume token.
+    FIRQuerySnapshot *querySnapshot1 = [self readDocumentSetForRef:collRef
+                                                            source:FIRFirestoreSourceDefault];
+    XCTAssertEqual(querySnapshot1.count, 100, @"querySnapshot1.count has an unexpected value");
+    NSArray<FIRDocumentReference *> *createdDocuments =
+        FIRDocumentReferenceArrayFromQuerySnapshot(querySnapshot1);
+
+    // Delete 50 of the 100 documents. Use a different Firestore instance to avoid affecting the
+    // local cache.
+    NSSet<NSString *> *deletedDocumentIds;
+    {
+      FIRFirestore *db2 = [self firestore];
+      FIRWriteBatch *batch = [db2 batch];
+
+      NSMutableArray<NSString *> *deletedDocumentIdsAccumulator = [[NSMutableArray alloc] init];
+      for (decltype(createdDocuments.count) i = 0; i < createdDocuments.count; i += 2) {
+        FIRDocumentReference *documentToDelete = [db2 documentWithPath:createdDocuments[i].path];
+        [batch deleteDocument:documentToDelete];
+        [deletedDocumentIdsAccumulator addObject:documentToDelete.documentID];
+      }
+
+      [self commitWriteBatch:batch];
+
+      deletedDocumentIds = [NSSet setWithArray:deletedDocumentIdsAccumulator];
+    }
+    XCTAssertEqual(deletedDocumentIds.count, 50u, @"deletedDocumentIds has the wrong size");
+
+    // Wait for 10 seconds, during which Watch will stop tracking the query and will send an
+    // existence filter rather than "delete" events when the query is resumed.
+    [NSThread sleepForTimeInterval:10.0f];
+
+    // Resume the query and save the resulting snapshot for verification.
+    // Use some internal testing hooks to "capture" the existence filter mismatches to verify that
+    // Watch sent a bloom filter, and it was used to avert a full requery.
+    __block FIRQuerySnapshot *querySnapshot2;
+    NSArray<FSTTestingHooksExistenceFilterMismatchInfo *> *existenceFilterMismatches =
+        [FSTTestingHooks captureExistenceFilterMismatchesDuringBlock:^{
+          querySnapshot2 = [self readDocumentSetForRef:collRef source:FIRFirestoreSourceDefault];
+        }];
+
+    // Verify that the snapshot from the resumed query contains the expected documents; that is,
+    // that it contains the 50 documents that were _not_ deleted.
+    {
+      NSMutableArray<NSString *> *expectedDocumentIds = [[NSMutableArray alloc] init];
+      for (FIRDocumentReference *documentRef in createdDocuments) {
+        if (![deletedDocumentIds containsObject:documentRef.documentID]) {
+          [expectedDocumentIds addObject:documentRef.documentID];
+        }
+      }
+      XCTAssertEqualObjects([NSSet setWithArray:FIRQuerySnapshotGetIDs(querySnapshot2)],
+                            [NSSet setWithArray:expectedDocumentIds],
+                            @"querySnapshot2 has the wrong documents");
+    }
+
+    // Verify that Watch sent an existence filter with the correct counts when the query was
+    // resumed.
+    XCTAssertEqual(existenceFilterMismatches.count, 1u,
+                   @"Watch should have sent exactly 1 existence filter");
+    FSTTestingHooksExistenceFilterMismatchInfo *existenceFilterMismatchInfo =
+        existenceFilterMismatches[0];
+    XCTAssertEqual(existenceFilterMismatchInfo.localCacheCount, 100);
+    XCTAssertEqual(existenceFilterMismatchInfo.existenceFilterCount, 50);
+
+    // Verify that Watch sent a valid bloom filter.
+    FSTTestingHooksBloomFilter *bloomFilter = existenceFilterMismatchInfo.bloomFilter;
+    XCTAssertNotNil(bloomFilter,
+                    "Watch should have included a bloom filter in the existence filter");
+    XCTAssertGreaterThan(bloomFilter.hashCount, 0);
+    XCTAssertGreaterThan(bloomFilter.bitmapLength, 0);
+    XCTAssertGreaterThan(bloomFilter.padding, 0);
+    XCTAssertLessThan(bloomFilter.padding, 8);
+
+    // Verify that the bloom filter was successfully used to avert a full requery. If a false
+    // positive occurred then retry the entire test. Although statistically rare, false positives
+    // are expected to happen occasionally. When a false positive _does_ happen, just retry the test
+    // with a different set of documents. If that retry _also_ experiences a false positive, then
+    // fail the test because that is so improbable that something must have gone wrong.
+    if (attemptNumber == 1 && !bloomFilter.applied) {
+      continue;
+    }
+
+    XCTAssertTrue(bloomFilter.applied,
+                  @"The bloom filter should have been successfully applied with attemptNumber=%@",
+                  @(attemptNumber));
+
+    // Break out of the test loop now that the test passes.
+    break;
+  }
+}
+
+- (void)
+    testBloomFilterShouldAvertAFullRequeryWhenDocumentsWereAddedDeletedRemovedUpdatedAndUnchangedSinceTheResumeToken {
+  // TODO(b/291365820): Stop skipping this test when running against the Firestore emulator once
+  // the emulator is improved to include a bloom filter in the existence filter messages that it
+  // sends.
+  XCTSkipIf([FSTIntegrationTestCase isRunningAgainstEmulator],
+            "Skip this test when running against the Firestore emulator because the emulator does "
+            "not include a bloom filter when it sends existence filter messages, making it "
+            "impossible for this test to verify the correctness of the bloom filter.");
+
+  // Set this test to stop when the first failure occurs because some test assertion failures make
+  // the rest of the test not applicable or will even crash.
+  [self setContinueAfterFailure:NO];
+
+  // Prepare the names and contents of the 20 documents to create.
+  NSMutableDictionary<NSString *, NSDictionary<NSString *, id> *> *testDocs =
+      [[NSMutableDictionary alloc] init];
+  for (int i = 0; i < 20; i++) {
+    [testDocs setValue:@{@"key" : @42, @"removed" : @NO}
+                forKey:[NSString stringWithFormat:@"doc%@", @(1000 + i)]];
+  }
+
+  // Each iteration of the "while" loop below runs a single iteration of the test. The test will
+  // be run multiple times only if a bloom filter false positive occurs.
+  int attemptNumber = 0;
+  while (true) {
+    attemptNumber++;
+
+    // Create 20 documents in a new collection.
+    FIRCollectionReference *collRef = [self collectionRefWithDocuments:testDocs];
+    FIRQuery *query = [collRef queryWhereField:@"removed" isEqualTo:@NO];
+
+    // Run a query to populate the local cache with the 20 documents and a resume token.
+    FIRQuerySnapshot *querySnapshot1 = [self readDocumentSetForRef:query
+                                                            source:FIRFirestoreSourceDefault];
+    XCTAssertEqual(querySnapshot1.count, 20u, @"querySnapshot1.count has an unexpected value");
+    NSArray<FIRDocumentReference *> *createdDocuments =
+        FIRDocumentReferenceArrayFromQuerySnapshot(querySnapshot1);
+
+    // Out of the 20 existing documents, leave 5 docs untouched, delete 5 docs, remove 5 docs,
+    // update 5 docs, and add 15 new docs.
+    NSSet<NSString *> *deletedDocumentIds;
+    NSSet<NSString *> *removedDocumentIds;
+    NSSet<NSString *> *updatedDocumentIds;
+    NSMutableArray<NSString *> *addedDocumentIds = [[NSMutableArray alloc] init];
+
+    {
+      FIRFirestore *db2 = [self firestore];
+      FIRWriteBatch *batch = [db2 batch];
+
+      NSMutableArray<NSString *> *deletedDocumentIdsAccumulator = [[NSMutableArray alloc] init];
+      for (decltype(createdDocuments.count) i = 0; i < createdDocuments.count; i += 4) {
+        FIRDocumentReference *documentToDelete = [db2 documentWithPath:createdDocuments[i].path];
+        [batch deleteDocument:documentToDelete];
+        [deletedDocumentIdsAccumulator addObject:documentToDelete.documentID];
+      }
+      deletedDocumentIds = [NSSet setWithArray:deletedDocumentIdsAccumulator];
+      XCTAssertEqual(deletedDocumentIds.count, 5u, @"deletedDocumentIds has the wrong size");
+
+      // Update 5 documents to no longer match the query.
+      NSMutableArray<NSString *> *removedDocumentIdsAccumulator = [[NSMutableArray alloc] init];
+      for (decltype(createdDocuments.count) i = 1; i < createdDocuments.count; i += 4) {
+        FIRDocumentReference *documentToRemove = [db2 documentWithPath:createdDocuments[i].path];
+        [batch updateData:@{@"removed" : @YES} forDocument:documentToRemove];
+        [removedDocumentIdsAccumulator addObject:documentToRemove.documentID];
+      }
+      removedDocumentIds = [NSSet setWithArray:removedDocumentIdsAccumulator];
+      XCTAssertEqual(removedDocumentIds.count, 5u, @"removedDocumentIds has the wrong size");
+
+      // Update 5 documents, but ensure they still match the query.
+      NSMutableArray<NSString *> *updatedDocumentIdsAccumulator = [[NSMutableArray alloc] init];
+      for (decltype(createdDocuments.count) i = 2; i < createdDocuments.count; i += 4) {
+        FIRDocumentReference *documentToUpdate = [db2 documentWithPath:createdDocuments[i].path];
+        [batch updateData:@{@"key" : @43} forDocument:documentToUpdate];
+        [updatedDocumentIdsAccumulator addObject:documentToUpdate.documentID];
+      }
+      updatedDocumentIds = [NSSet setWithArray:updatedDocumentIdsAccumulator];
+      XCTAssertEqual(updatedDocumentIds.count, 5u, @"updatedDocumentIds has the wrong size");
+
+      for (int i = 0; i < 15; i += 1) {
+        FIRDocumentReference *documentToAdd = [db2
+            documentWithPath:[NSString stringWithFormat:@"%@/newDoc%@", collRef.path, @(1000 + i)]];
+        [batch setData:@{@"key" : @42, @"removed" : @NO} forDocument:documentToAdd];
+        [addedDocumentIds addObject:documentToAdd.documentID];
+      }
+
+      // Ensure the documentIds above are mutually exclusive.
+      NSMutableSet<NSString *> *mergedSet = [NSMutableSet setWithArray:addedDocumentIds];
+      [mergedSet unionSet:deletedDocumentIds];
+      [mergedSet unionSet:removedDocumentIds];
+      [mergedSet unionSet:updatedDocumentIds];
+      XCTAssertEqual(mergedSet.count, 30u, @"There are documents experienced multiple operations.");
+
+      [self commitWriteBatch:batch];
+    }
+
+    // Wait for 10 seconds, during which Watch will stop tracking the query and will send an
+    // existence filter rather than "delete" events when the query is resumed.
+    [NSThread sleepForTimeInterval:10.0f];
+
+    // Resume the query and save the resulting snapshot for verification. Use some internal testing
+    // hooks to "capture" the existence filter mismatches to verify that Watch sent a bloom
+    // filter, and it was used to avert a full requery.
+    __block FIRQuerySnapshot *querySnapshot2;
+    NSArray<FSTTestingHooksExistenceFilterMismatchInfo *> *existenceFilterMismatches =
+        [FSTTestingHooks captureExistenceFilterMismatchesDuringBlock:^{
+          querySnapshot2 = [self readDocumentSetForRef:query source:FIRFirestoreSourceDefault];
+        }];
+    XCTAssertEqual(querySnapshot2.count, 25u, @"querySnapshot1.count has an unexpected value");
+
+    // Verify that the snapshot from the resumed query contains the expected documents; that is, 10
+    // existing documents that still match the query, and 15 documents that are newly added.
+    {
+      NSMutableArray<NSString *> *expectedDocumentIds = [[NSMutableArray alloc] init];
+      for (FIRDocumentReference *documentRef in createdDocuments) {
+        if (![deletedDocumentIds containsObject:documentRef.documentID] &&
+            ![removedDocumentIds containsObject:documentRef.documentID]) {
+          [expectedDocumentIds addObject:documentRef.documentID];
+        }
+      }
+      [expectedDocumentIds addObjectsFromArray:addedDocumentIds];
+      XCTAssertEqualObjects([NSSet setWithArray:FIRQuerySnapshotGetIDs(querySnapshot2)],
+                            [NSSet setWithArray:expectedDocumentIds],
+                            @"querySnapshot2 has the wrong documents");
+    }
+
+    // Verify that Watch sent an existence filter with the correct counts when the query was
+    // resumed.
+    XCTAssertEqual(existenceFilterMismatches.count, 1u,
+                   @"Watch should have sent exactly 1 existence filter");
+    FSTTestingHooksExistenceFilterMismatchInfo *existenceFilterMismatchInfo =
+        existenceFilterMismatches[0];
+    XCTAssertEqual(existenceFilterMismatchInfo.localCacheCount, 35);
+    XCTAssertEqual(existenceFilterMismatchInfo.existenceFilterCount, 25);
+
+    // Verify that Watch sent a valid bloom filter.
+    FSTTestingHooksBloomFilter *bloomFilter = existenceFilterMismatchInfo.bloomFilter;
+    XCTAssertNotNil(bloomFilter,
+                    "Watch should have included a bloom filter in the existence filter");
+
+    // Verify that the bloom filter was successfully used to avert a full requery. If a false
+    // positive occurred then retry the entire test. Although statistically rare, false positives
+    // are expected to happen occasionally. When a false positive _does_ happen, just retry the test
+    // with a different set of documents. If that retry _also_ experiences a false positive, then
+    // fail the test because that is so improbable that something must have gone wrong.
+    if (attemptNumber == 1 && !bloomFilter.applied) {
+      continue;
+    }
+
+    XCTAssertTrue(bloomFilter.applied,
+                  @"The bloom filter should have been successfully applied with attemptNumber=%@",
+                  @(attemptNumber));
+
+    // Break out of the test loop now that the test passes.
+    break;
+  }
+}
+
+- (void)testBloomFilterShouldCorrectlyEncodeComplexUnicodeCharacters {
+  // TODO(b/291365820): Stop skipping this test when running against the Firestore emulator once
+  // the emulator is improved to include a bloom filter in the existence filter messages that it
+  // sends.
+  XCTSkipIf([FSTIntegrationTestCase isRunningAgainstEmulator],
+            "Skip this test when running against the Firestore emulator because the emulator does "
+            "not include a bloom filter when it sends existence filter messages, making it "
+            "impossible for this test to verify the correctness of the bloom filter.");
+
+  // Set this test to stop when the first failure occurs because some test assertion failures make
+  // the rest of the test not applicable or will even crash.
+  [self setContinueAfterFailure:NO];
+
+  // Define a comparator that compares `NSString` objects in a way that orders canonically-
+  // equivalent, but distinct, strings in a consistent manner by using `NSForcedOrderingSearch`.
+  // Otherwise, the bare `[NSString compare:]` method considers canonically-equivalent, but
+  // distinct, strings as "equal" and orders them indeterminately.
+  NSComparator sortComparator = ^(NSString *string1, NSString *string2) {
+    return [string1 compare:string2 options:NSForcedOrderingSearch];
+  };
+
+  // Firestore does not do any Unicode normalization on the document IDs. Therefore, two document
+  // IDs that are canonically-equivalent (i.e. they visually appear identical) but are represented
+  // by a different sequence of Unicode code points are treated as distinct document IDs.
+  NSArray<NSString *> *testDocIds;
+  {
+    NSMutableArray<NSString *> *testDocIdsAccumulator = [[NSMutableArray alloc] init];
+    [testDocIdsAccumulator addObject:@"DocumentToDelete"];
+    // The next two strings both end with "e" with an accent: the first uses the dedicated Unicode
+    // code point for this character, while the second uses the standard lowercase "e" followed by
+    // the accent combining character.
+    [testDocIdsAccumulator addObject:@"LowercaseEWithAcuteAccent_\u00E9"];
+    [testDocIdsAccumulator addObject:@"LowercaseEWithAcuteAccent_\u0065\u0301"];
+    // The next two strings both end with an "e" with two different accents applied via the
+    // following two combining characters. The combining characters are specified in a different
+    // order and Firestore treats these document IDs as unique, despite the order of the combining
+    // characters being irrelevant.
+    [testDocIdsAccumulator addObject:@"LowercaseEWithMultipleAccents_\u0065\u0301\u0327"];
+    [testDocIdsAccumulator addObject:@"LowercaseEWithMultipleAccents_\u0065\u0327\u0301"];
+    // The next string contains a character outside the BMP (the "basic multilingual plane"); that
+    // is, its code point is greater than 0xFFFF. Since NSString stores text in sequences of 16-bit
+    // code units, using the UTF-16 encoding (according to
+    // https://www.objc.io/issues/9-strings/unicode) it is stored as a surrogate pair, two 16-bit
+    // code units U+D83D and U+DE00, to represent this character. Make sure that its presence is
+    // correctly tested in the bloom filter, which uses UTF-8 encoding.
+    [testDocIdsAccumulator addObject:@"Smiley_\U0001F600"];
+
+    testDocIds = [NSArray arrayWithArray:testDocIdsAccumulator];
+  }
+
+  // Verify assumptions about the equivalence of strings in `testDocIds`.
+  XCTAssertEqualObjects(testDocIds[1].decomposedStringWithCanonicalMapping,
+                        testDocIds[2].decomposedStringWithCanonicalMapping);
+  XCTAssertEqualObjects(testDocIds[3].decomposedStringWithCanonicalMapping,
+                        testDocIds[4].decomposedStringWithCanonicalMapping);
+  XCTAssertEqual([testDocIds[5] characterAtIndex:7], 0xD83D);
+  XCTAssertEqual([testDocIds[5] characterAtIndex:8], 0xDE00);
+
+  // Create the mapping from document ID to document data for the document IDs specified in
+  // `testDocIds`.
+  NSMutableDictionary<NSString *, NSDictionary<NSString *, id> *> *testDocs =
+      [[NSMutableDictionary alloc] init];
+  for (NSString *testDocId in testDocIds) {
+    [testDocs setValue:@{@"foo" : @42} forKey:testDocId];
+  }
+
+  // Create the documents whose names contain complex Unicode characters in a new collection.
+  FIRCollectionReference *collRef = [self collectionRefWithDocuments:testDocs];
+
+  // Run a query to populate the local cache with documents that have names with complex Unicode
+  // characters.
+  {
+    FIRQuerySnapshot *querySnapshot1 = [self readDocumentSetForRef:collRef
+                                                            source:FIRFirestoreSourceDefault];
+    XCTAssertEqualObjects(
+        [FIRQuerySnapshotGetIDs(querySnapshot1) sortedArrayUsingComparator:sortComparator],
+        [testDocIds sortedArrayUsingComparator:sortComparator],
+        @"querySnapshot1 has the wrong documents");
+  }
+
+  // Delete one of the documents so that the next call to collection.get() will experience an
+  // existence filter mismatch. Use a different Firestore instance to avoid affecting the local
+  // cache.
+  FIRDocumentReference *documentToDelete = [collRef documentWithPath:@"DocumentToDelete"];
+  {
+    FIRFirestore *db2 = [self firestore];
+    [self deleteDocumentRef:[db2 documentWithPath:documentToDelete.path]];
+  }
+
+  // Wait for 10 seconds, during which Watch will stop tracking the query and will send an
+  // existence filter rather than "delete" events when the query is resumed.
+  [NSThread sleepForTimeInterval:10.0f];
+
+  // Resume the query and save the resulting snapshot for verification. Use some internal testing
+  // hooks to "capture" the existence filter mismatches.
+  __block FIRQuerySnapshot *querySnapshot2;
+  NSArray<FSTTestingHooksExistenceFilterMismatchInfo *> *existenceFilterMismatches =
+      [FSTTestingHooks captureExistenceFilterMismatchesDuringBlock:^{
+        querySnapshot2 = [self readDocumentSetForRef:collRef source:FIRFirestoreSourceDefault];
+      }];
+
+  // Verify that the snapshot from the resumed query contains the expected documents; that is, that
+  // it contains the documents whose names contain complex Unicode characters and _not_ the document
+  // that was deleted.
+  {
+    NSMutableArray<NSString *> *querySnapshot2ExpectedDocumentIds =
+        [NSMutableArray arrayWithArray:testDocIds];
+    [querySnapshot2ExpectedDocumentIds removeObject:documentToDelete.documentID];
+    XCTAssertEqualObjects(
+        [FIRQuerySnapshotGetIDs(querySnapshot2) sortedArrayUsingComparator:sortComparator],
+        [querySnapshot2ExpectedDocumentIds sortedArrayUsingComparator:sortComparator],
+        @"querySnapshot2 has the wrong documents");
+  }
+
+  // Verify that Watch sent an existence filter with the correct counts.
+  XCTAssertEqual(existenceFilterMismatches.count, 1u,
+                 @"Watch should have sent exactly 1 existence filter");
+  FSTTestingHooksExistenceFilterMismatchInfo *existenceFilterMismatchInfo =
+      existenceFilterMismatches[0];
+  XCTAssertEqual(existenceFilterMismatchInfo.localCacheCount, (int)testDocIds.count);
+  XCTAssertEqual(existenceFilterMismatchInfo.existenceFilterCount, (int)testDocIds.count - 1);
+
+  // Verify that Watch sent a valid bloom filter.
+  FSTTestingHooksBloomFilter *bloomFilter = existenceFilterMismatchInfo.bloomFilter;
+  XCTAssertNotNil(bloomFilter, "Watch should have included a bloom filter in the existence filter");
+
+  // The bloom filter application should statistically be successful almost every time; the _only_
+  // time when it would _not_ be successful is if there is a false positive when testing for
+  // 'DocumentToDelete' in the bloom filter. So verify that the bloom filter application is
+  // successful, unless there was a false positive.
+  BOOL isFalsePositive = [bloomFilter mightContain:documentToDelete];
+  XCTAssertEqual(bloomFilter.applied, !isFalsePositive);
+
+  // Verify that the bloom filter contains the document paths with complex Unicode characters.
+  for (FIRDocumentSnapshot *documentSnapshot in querySnapshot2.documents) {
+    XCTAssertTrue([bloomFilter mightContain:documentSnapshot.reference],
+                  @"The bloom filter should contain %@", documentSnapshot.documentID);
+  }
 }
 
 @end

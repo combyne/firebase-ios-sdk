@@ -6,11 +6,9 @@ use_frameworks!
 
 pod 'FirebaseCore', :path => '../../../../..'
 pod 'FirebaseInstallations', :path => '../../../../..'
-pod 'FirebaseCoreDiagnostics', :path => '../../../../..'
 pod 'FirebaseABTesting', :path => '../../../../..'
 pod 'FirebaseInAppMessaging', :path => '../../../../..'
 
 target 'FIAMSwiftUI (iOS)' do
   platform :ios, '13.0'
-  pod 'FirebaseInAppMessagingSwift', :path => '../../../../..'
 end

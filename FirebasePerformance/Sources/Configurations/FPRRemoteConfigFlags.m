@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#import "FirebasePerformance/Sources/Configurations/FPRRemoteConfigFlags.h"
+#import <GoogleUtilities/GULUserDefaults.h>
+
 #import "FirebasePerformance/Sources/Configurations/FPRConfigurations+Private.h"
 #import "FirebasePerformance/Sources/Configurations/FPRConfigurations.h"
 #import "FirebasePerformance/Sources/Configurations/FPRRemoteConfigFlags+Private.h"
+#import "FirebasePerformance/Sources/Configurations/FPRRemoteConfigFlags.h"
 
 #import "FirebasePerformance/Sources/FPRConsoleLogger.h"
 
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 
 #define ONE_DAY_SECONDS 24 * 60 * 60
 
@@ -103,6 +105,7 @@ typedef NS_ENUM(NSInteger, FPRConfigValueType) {
     [keysToCache setObject:@(FPRConfigValueTypeInteger)
                     forKey:@"fpr_session_gauge_memory_capture_frequency_bg_ms"];
     [keysToCache setObject:@(FPRConfigValueTypeInteger) forKey:@"fpr_session_max_duration_min"];
+    [keysToCache setObject:@(FPRConfigValueTypeInteger) forKey:@"fpr_prewarm_detection"];
     self.configKeys = [keysToCache copy];
 
     [self update];

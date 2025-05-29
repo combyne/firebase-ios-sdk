@@ -21,34 +21,42 @@ import Foundation
 /// The version and releasing fields of the non-Firebase pods should be reviewed every release.
 /// The array should be ordered so that any pod's dependencies precede it in the list.
 public let shared = Manifest(
-  version: "8.10.0",
+  version: "11.14.0",
   pods: [
-    Pod("FirebaseCoreDiagnostics", zip: true),
-    Pod("FirebaseCore", zip: true),
-    Pod("FirebaseInstallations", zip: true),
-    Pod("GoogleAppMeasurement", isClosedSource: true),
-    Pod("FirebaseAnalytics", isClosedSource: true, zip: true),
-    Pod("FirebaseAnalyticsSwift", isBeta: true),
+    Pod("FirebaseSharedSwift"),
+    Pod("FirebaseCoreInternal"),
+    Pod("FirebaseCore"),
+    Pod("FirebaseCoreExtension"),
+    Pod("FirebaseAppCheckInterop"),
+    Pod("FirebaseAuthInterop"),
+    Pod("FirebaseMessagingInterop"),
+    Pod("FirebaseInstallations"),
+    Pod("FirebaseSessions"),
+    Pod("FirebaseRemoteConfigInterop"),
+    Pod("GoogleAppMeasurement", isClosedSource: true, platforms: ["ios", "macos", "tvos"]),
+    Pod("GoogleAppMeasurementOnDeviceConversion", isClosedSource: true, platforms: ["ios"]),
+    Pod("FirebaseAnalytics", isClosedSource: true, platforms: ["ios", "macos", "tvos"], zip: true),
+    Pod("FirebaseAnalyticsOnDeviceConversion", platforms: ["ios"], zip: true),
     Pod("FirebaseABTesting", zip: true),
-    Pod("FirebaseAppCheck", isBeta: true, zip: true),
+    Pod("FirebaseAppCheck", zip: true),
     Pod("FirebaseRemoteConfig", zip: true),
+    Pod("FirebaseAI", zip: true),
     Pod("FirebaseAppDistribution", isBeta: true, platforms: ["ios"], zip: true),
     Pod("FirebaseAuth", zip: true),
     Pod("FirebaseCrashlytics", zip: true),
-    Pod("FirebaseDatabase", zip: true),
-    Pod("FirebaseDatabaseSwift", isBeta: true),
-    Pod("FirebaseDynamicLinks", platforms: ["ios"], zip: true),
-    Pod("FirebaseFirestore", allowWarnings: true, zip: true),
-    Pod("FirebaseFirestoreSwift", isBeta: true),
+    Pod("FirebaseDatabase", platforms: ["ios", "macos", "tvos"], zip: true),
+    Pod("FirebaseDynamicLinks", allowWarnings: true, platforms: ["ios"], zip: true),
+    Pod("FirebaseFirestoreInternal", allowWarnings: true, platforms: ["ios", "macos", "tvos"]),
+    Pod("FirebaseFirestore", allowWarnings: true, platforms: ["ios", "macos", "tvos"], zip: true),
     Pod("FirebaseFunctions", zip: true),
     Pod("FirebaseInAppMessaging", isBeta: true, platforms: ["ios"], zip: true),
-    Pod("FirebaseInAppMessagingSwift", isBeta: true, platforms: ["ios"]),
     Pod("FirebaseMessaging", zip: true),
     Pod("FirebasePerformance", platforms: ["ios", "tvos"], zip: true),
     Pod("FirebaseStorage", zip: true),
-    Pod("FirebaseStorageSwift", isBeta: true),
     Pod("FirebaseMLModelDownloader", isBeta: true, zip: true),
-    Pod("Firebase", allowWarnings: true, zip: true),
+    Pod("FirebaseVertexAI", zip: true),
+    Pod("Firebase", allowWarnings: true, platforms: ["ios", "tvos", "macos"], zip: true),
+    Pod("FirebaseCombineSwift", releasing: false, zip: false),
   ]
 )
 
@@ -58,6 +66,7 @@ public struct Manifest {
   public let pods: [Pod]
 
   public func versionString(_ pod: Pod) -> String {
+    let version = pod.podVersion ?? self.version
     return pod.isBeta ? version + "-beta" : version
   }
 }

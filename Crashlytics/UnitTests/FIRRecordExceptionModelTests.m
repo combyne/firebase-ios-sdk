@@ -18,6 +18,7 @@
 #import "Crashlytics/Crashlytics/Public/FirebaseCrashlytics/FIRStackFrame.h"
 
 #import "Crashlytics/Crashlytics/Components/FIRCLSContext.h"
+#import "Crashlytics/Crashlytics/Controllers/FIRCLSContextManager.h"
 #import "Crashlytics/Crashlytics/Models/FIRCLSInstallIdentifierModel.h"
 #import "Crashlytics/Crashlytics/Models/FIRCLSInternalReport.h"
 #import "Crashlytics/UnitTests/Mocks/FABMockApplicationIdentifierModel.h"
@@ -52,7 +53,11 @@
       [[FIRCLSInternalReport alloc] initWithPath:self.reportPath
                              executionIdentifier:@"TEST_EXECUTION_IDENTIFIER"];
 
-  FIRCLSContextInitialize(report, self.mockSettings, self.fileManager);
+  FIRCLSContextManager *contextManager = [[FIRCLSContextManager alloc] init];
+  FBLPromiseAwait([contextManager setupContextWithReport:report
+                                                settings:self.mockSettings
+                                             fileManager:self.fileManager],
+                  nil);
 }
 
 - (void)tearDown {
@@ -71,7 +76,7 @@
   FIRExceptionModel *exceptionModel = [FIRExceptionModel exceptionModelWithName:name reason:reason];
   exceptionModel.stackTrace = stackTrace;
 
-  FIRCLSExceptionRecordModel(exceptionModel);
+  FIRCLSExceptionRecordModel(exceptionModel, nil);
 
   NSData *data = [NSData
       dataWithContentsOfFile:[self.reportPath

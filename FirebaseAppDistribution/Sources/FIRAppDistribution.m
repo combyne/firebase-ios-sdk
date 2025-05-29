@@ -15,7 +15,7 @@
 
 #import <GoogleUtilities/GULAppDelegateSwizzler.h>
 #import <GoogleUtilities/GULUserDefaults.h>
-#import "FirebaseCore/Sources/Private/FirebaseCoreInternal.h"
+#import "FirebaseCore/Extension/FirebaseCoreInternal.h"
 #import "FirebaseInstallations/Source/Library/Private/FirebaseInstallationsInternal.h"
 
 #import "FirebaseAppDistribution/Sources/FIRAppDistributionMachO.h"
@@ -101,7 +101,6 @@ NSString *const kFIRFADSignInStateKey = @"FIRFADSignInState";
   FIRComponent *component =
       [FIRComponent componentWithProtocol:@protocol(FIRAppDistributionInstanceProvider)
                       instantiationTiming:FIRInstantiationTimingEagerInDefaultApp
-                             dependencies:@[]
                             creationBlock:creationBlock];
   return @[ component ];
 }
@@ -148,7 +147,7 @@ NSString *const kFIRFADSignInStateKey = @"FIRFADSignInState";
     }
 
     NSString *requestURL = [NSString
-        stringWithFormat:@"https://appdistribution.firebase.dev/nba/pub/apps/%@/"
+        stringWithFormat:@"https://appdistribution.firebase.google.com/pub/testerapps/%@/"
                          @"installations/%@/buildalerts?appName=%@",
                          [[FIRApp defaultApp] options].googleAppID, identifier, [self getAppName]];
 
@@ -336,4 +335,13 @@ NSString *const kFIRFADSignInStateKey = @"FIRFADSignInState";
 
   return codeHash && [codeHash isEqualToString:[machO codeHash]];
 }
+
+#pragma mark - Swizzling disabled
+
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+            options:(NSDictionary<NSString *, id> *)options {
+  return [self.uiService application:application openURL:url options:options];
+}
+
 @end

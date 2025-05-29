@@ -18,8 +18,8 @@
 #import <CoreTelephony/CTCarrier.h>
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #endif
-#import <SystemConfiguration/SystemConfiguration.h>
 
+#import "FirebasePerformance/Sources/AppActivity/FPRAppActivityTracker.h"
 #import "FirebasePerformance/Sources/Common/FPRConstants.h"
 #import "FirebasePerformance/Sources/FIRPerformance+Internal.h"
 #import "FirebasePerformance/Sources/FPRDataUtils.h"
@@ -34,7 +34,6 @@
 
 static firebase_perf_v1_NetworkRequestMetric_HttpMethod FPRHTTPMethodForString(
     NSString *methodString);
-static firebase_perf_v1_NetworkConnectionInfo_NetworkType FPRNetworkConnectionInfoNetworkType(void);
 #ifdef TARGET_HAS_MOBILE_CONNECTIVITY
 static firebase_perf_v1_NetworkConnectionInfo_MobileSubtype FPRCellularNetworkType(void);
 #endif
@@ -72,41 +71,12 @@ static firebase_perf_v1_NetworkRequestMetric_HttpMethod FPRHTTPMethodForString(
   return HTTPMethod.intValue;
 }
 
-/** Get the current network connection type in firebase_perf_v1_NetworkConnectionInfo_NetworkType
- * format.
- *  @return Current network connection type.
- */
-static firebase_perf_v1_NetworkConnectionInfo_NetworkType FPRNetworkConnectionInfoNetworkType() {
-  firebase_perf_v1_NetworkConnectionInfo_NetworkType networkType =
-      firebase_perf_v1_NetworkConnectionInfo_NetworkType_NONE;
-
-  static SCNetworkReachabilityRef reachabilityRef = 0;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    reachabilityRef = SCNetworkReachabilityCreateWithName(kCFAllocatorSystemDefault, "google.com");
-  });
-
-  SCNetworkReachabilityFlags reachabilityFlags = 0;
-  SCNetworkReachabilityGetFlags(reachabilityRef, &reachabilityFlags);
-
-  // Parse the network flags to set the network type.
-  if (reachabilityFlags & kSCNetworkReachabilityFlagsReachable) {
-    if (reachabilityFlags & kSCNetworkReachabilityFlagsIsWWAN) {
-      networkType = firebase_perf_v1_NetworkConnectionInfo_NetworkType_MOBILE;
-    } else {
-      networkType = firebase_perf_v1_NetworkConnectionInfo_NetworkType_WIFI;
-    }
-  }
-
-  return networkType;
-}
-
 #ifdef TARGET_HAS_MOBILE_CONNECTIVITY
 /** Get the current cellular network connection type in
  * firebase_perf_v1_NetworkConnectionInfo_MobileSubtype format.
  *  @return Current cellular network connection type.
  */
-static firebase_perf_v1_NetworkConnectionInfo_MobileSubtype FPRCellularNetworkType() {
+static firebase_perf_v1_NetworkConnectionInfo_MobileSubtype FPRCellularNetworkType(void) {
   static NSDictionary<NSString *, NSNumber *> *cellularNetworkToMobileSubtype;
   static dispatch_once_t onceToken = 0;
   dispatch_once(&onceToken, ^{
@@ -128,9 +98,15 @@ static firebase_perf_v1_NetworkConnectionInfo_MobileSubtype FPRCellularNetworkTy
     };
   });
 
-  NSString *networkString = FPRNetworkInfo().currentRadioAccessTechnology;
-  NSNumber *cellularNetworkType = cellularNetworkToMobileSubtype[networkString];
-  return cellularNetworkType.intValue;
+  NSDictionary<NSString *, NSString *> *radioAccessors =
+      FPRNetworkInfo().serviceCurrentRadioAccessTechnology;
+  if (radioAccessors.count > 0) {
+    NSString *networkString = [radioAccessors.allValues objectAtIndex:0];
+    NSNumber *cellularNetworkType = cellularNetworkToMobileSubtype[networkString];
+    return cellularNetworkType.intValue;
+  }
+
+  return firebase_perf_v1_NetworkConnectionInfo_MobileSubtype_UNKNOWN_MOBILE_SUBTYPE;
 }
 #endif
 
@@ -206,23 +182,18 @@ firebase_perf_v1_PerfMetric FPRGetPerfMetricMessage(NSString *appID) {
   return perfMetricMessage;
 }
 
-firebase_perf_v1_ApplicationInfo FPRGetApplicationInfoMessage() {
+firebase_perf_v1_ApplicationInfo FPRGetApplicationInfoMessage(void) {
   firebase_perf_v1_ApplicationInfo appInfoMessage = firebase_perf_v1_ApplicationInfo_init_default;
   firebase_perf_v1_IosApplicationInfo iosAppInfo = firebase_perf_v1_IosApplicationInfo_init_default;
   NSBundle *mainBundle = [NSBundle mainBundle];
   iosAppInfo.bundle_short_version =
       FPREncodeString([mainBundle infoDictionary][@"CFBundleShortVersionString"]);
   iosAppInfo.sdk_version = FPREncodeString([NSString stringWithUTF8String:kFPRSDKVersion]);
-  iosAppInfo.network_connection_info.network_type = FPRNetworkConnectionInfoNetworkType();
+  iosAppInfo.network_connection_info.network_type =
+      [FPRAppActivityTracker sharedInstance].networkType;
   iosAppInfo.has_network_connection_info = true;
   iosAppInfo.network_connection_info.has_network_type = true;
 #ifdef TARGET_HAS_MOBILE_CONNECTIVITY
-  CTTelephonyNetworkInfo *networkInfo = FPRNetworkInfo();
-  CTCarrier *provider = networkInfo.subscriberCellularProvider;
-  NSString *mccMnc = FPRValidatedMccMnc(provider.mobileCountryCode, provider.mobileNetworkCode);
-  if (mccMnc) {
-    iosAppInfo.mcc_mnc = FPREncodeString(mccMnc);
-  }
   if (iosAppInfo.network_connection_info.network_type ==
       firebase_perf_v1_NetworkConnectionInfo_NetworkType_MOBILE) {
     iosAppInfo.network_connection_info.mobile_subtype = FPRCellularNetworkType();
@@ -433,7 +404,7 @@ firebase_perf_v1_ApplicationProcessState FPRApplicationProcessState(FPRTraceStat
 }
 
 #ifdef TARGET_HAS_MOBILE_CONNECTIVITY
-CTTelephonyNetworkInfo *FPRNetworkInfo() {
+CTTelephonyNetworkInfo *FPRNetworkInfo(void) {
   static CTTelephonyNetworkInfo *networkInfo;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{

@@ -13,12 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0 ||                                          \
-    __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_10_14 || __TV_OS_VERSION_MAX_ALLOWED >= __TV_10_0 || \
-    __WATCH_OS_VERSION_MAX_ALLOWED >= __WATCHOS_3_0 || TARGET_OS_MACCATALYST
-#import <UserNotifications/UserNotifications.h>
-#endif
+
 #import <OCMock/OCMock.h>
+#import <UserNotifications/UserNotifications.h>
 #import <XCTest/XCTest.h>
 
 #import "FirebaseMessaging/Sources/FIRMessagingContextManagerService.h"
@@ -36,7 +33,8 @@ static NSString *const kMessageIdentifierValue = @"1584748495200141";
 
 @interface FIRMessagingContextManagerService (ExposedForTest)
 + (void)scheduleiOS10LocalNotificationForMessage:(NSDictionary *)message atDate:(NSDate *)date;
-+ (UNMutableNotificationContent *)contentFromContextualMessage:(NSDictionary *)message;
++ (UNMutableNotificationContent *)contentFromContextualMessage:(NSDictionary *)message
+    API_AVAILABLE(macos(10.14));
 @end
 
 API_AVAILABLE(macos(10.14))
@@ -44,8 +42,7 @@ API_AVAILABLE(macos(10.14))
 
 @property(nonatomic, readwrite, strong) NSDateFormatter *dateFormatter;
 @property(nonatomic, readwrite, strong) NSMutableArray *scheduledLocalNotifications;
-@property(nonatomic, readwrite, strong)
-    NSMutableArray<UNNotificationRequest *> *requests API_AVAILABLE(ios(10.0), macos(10.4));
+@property(nonatomic, readwrite, strong) NSMutableArray<UNNotificationRequest *> *requests;
 
 @end
 
@@ -57,7 +54,7 @@ API_AVAILABLE(macos(10.14))
   self.dateFormatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
   [self.dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
   self.scheduledLocalNotifications = [[NSMutableArray alloc] init];
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     self.requests = [[NSMutableArray alloc] init];
   }
 
@@ -104,15 +101,15 @@ API_AVAILABLE(macos(10.14))
   };
   XCTAssertTrue([FIRMessagingContextManagerService handleContextManagerMessage:message]);
 
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     XCTAssertEqual(self.requests.count, 1);
     UNNotificationRequest *request = self.requests.firstObject;
     XCTAssertEqualObjects(request.identifier, kMessageIdentifierValue);
-#if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
+#if !TARGET_OS_TV
     XCTAssertEqualObjects(request.content.body, kBody);
     XCTAssertEqualObjects(request.content.userInfo[kUserInfoKey1], kUserInfoValue1);
     XCTAssertEqualObjects(request.content.userInfo[kUserInfoKey2], kUserInfoValue2);
-#endif
+#endif  // TARGET_OS_TV
     return;
   }
 
@@ -127,7 +124,7 @@ API_AVAILABLE(macos(10.14))
   XCTAssertEqualObjects(notification.alertBody, kBody);
   XCTAssertEqualObjects(notification.userInfo[kUserInfoKey1], kUserInfoValue1);
   XCTAssertEqualObjects(notification.userInfo[kUserInfoKey2], kUserInfoValue2);
-#endif
+#endif  // TARGET_OS_IOS
 }
 
 /**
@@ -146,7 +143,7 @@ API_AVAILABLE(macos(10.14))
   };
 
   XCTAssertTrue([FIRMessagingContextManagerService handleContextManagerMessage:message]);
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     XCTAssertEqual(self.requests.count, 0);
     return;
   }
@@ -176,7 +173,7 @@ API_AVAILABLE(macos(10.14))
 
   XCTAssertTrue([FIRMessagingContextManagerService handleContextManagerMessage:message]);
 
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     XCTAssertEqual(self.requests.count, 1);
     UNNotificationRequest *request = self.requests.firstObject;
     XCTAssertEqualObjects(request.identifier, kMessageIdentifierValue);
@@ -196,7 +193,7 @@ API_AVAILABLE(macos(10.14))
   XCTAssertEqual([notification.fireDate compare:endDate], NSOrderedAscending);
   XCTAssertEqualObjects(notification.userInfo[kUserInfoKey1], kUserInfoValue1);
   XCTAssertEqualObjects(notification.userInfo[kUserInfoKey2], kUserInfoValue2);
-#endif
+#endif  // TARGET_OS_IOS
 }
 
 /**
@@ -216,7 +213,7 @@ API_AVAILABLE(macos(10.14))
   };
 
   XCTAssertTrue([FIRMessagingContextManagerService handleContextManagerMessage:message]);
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     XCTAssertEqual(self.requests.count, 1);
     UNNotificationRequest *request = self.requests.firstObject;
     XCTAssertEqualObjects(request.identifier, kMessageIdentifierValue);
@@ -232,7 +229,7 @@ API_AVAILABLE(macos(10.14))
 #pragma clang diagnostic pop
   XCTAssertEqualObjects(notification.userInfo[kUserInfoKey1], kUserInfoValue1);
   XCTAssertEqualObjects(notification.userInfo[kUserInfoKey2], kUserInfoValue2);
-#endif
+#endif  // TARGET_OS_IOS
 }
 
 #pragma mark - Private Helpers
@@ -274,11 +271,11 @@ API_AVAILABLE(macos(10.14))
        return NO;
      }]];
 #pragma clang diagnostic pop
-#endif
+#endif  // TARGET_OS_IOS
 }
 
 - (void)testScheduleiOS10LocalNotification {
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     id mockContextManagerService = OCMClassMock([FIRMessagingContextManagerService class]);
     NSDictionary *message = @{};
 
@@ -290,7 +287,7 @@ API_AVAILABLE(macos(10.14))
 }
 
 - (void)testContentFromConetxtualMessage {
-  if (@available(macOS 10.14, iOS 10.0, watchOS 3.0, tvOS 10.0, *)) {
+  if (@available(macOS 10.14, *)) {
     NSDictionary *message = @{
       @"aps" : @{@"content-available" : @1},
       @"gcm.message_id" : @1623702615599207,

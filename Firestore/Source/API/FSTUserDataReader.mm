@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#import "Firestore/Source/API/FSTUserDataReader.h"
+#import <FirebaseCore/FIRTimestamp.h>
 
 #include <memory>
 #include <set>
@@ -22,8 +22,10 @@
 #include <utility>
 #include <vector>
 
+#import "Firestore/Source/API/FSTUserDataReader.h"
+
 #import "FIRGeoPoint.h"
-#import "FIRTimestamp.h"
+#import "FIRVectorValue.h"
 
 #import "Firestore/Source/API/FIRDocumentReference+Internal.h"
 #import "Firestore/Source/API/FIRFieldPath+Internal.h"
@@ -61,6 +63,13 @@ namespace nanopb = firebase::firestore::nanopb;
 using firebase::Timestamp;
 using firebase::TimestampInternal;
 using firebase::firestore::GeoPoint;
+using firebase::firestore::google_firestore_v1_ArrayValue;
+using firebase::firestore::google_firestore_v1_MapValue;
+using firebase::firestore::google_firestore_v1_MapValue_FieldsEntry;
+using firebase::firestore::google_firestore_v1_Value;
+using firebase::firestore::google_protobuf_NullValue_NULL_VALUE;
+using firebase::firestore::google_protobuf_Timestamp;
+using firebase::firestore::google_type_LatLng;
 using firebase::firestore::core::ParseAccumulator;
 using firebase::firestore::core::ParseContext;
 using firebase::firestore::core::ParsedSetData;
@@ -68,6 +77,7 @@ using firebase::firestore::core::ParsedUpdateData;
 using firebase::firestore::core::UserDataSource;
 using firebase::firestore::model::ArrayTransform;
 using firebase::firestore::model::DatabaseId;
+using firebase::firestore::model::DeepClone;
 using firebase::firestore::model::DocumentKey;
 using firebase::firestore::model::FieldMask;
 using firebase::firestore::model::FieldPath;
@@ -82,15 +92,8 @@ using firebase::firestore::nanopb::CheckedSize;
 using firebase::firestore::nanopb::Message;
 using firebase::firestore::remote::Serializer;
 using firebase::firestore::util::MakeString;
-using firebase::firestore::util::ThrowInvalidArgument;
 using firebase::firestore::util::ReadContext;
-using firebase::firestore::google_firestore_v1_Value;
-using firebase::firestore::google_firestore_v1_MapValue;
-using firebase::firestore::google_firestore_v1_ArrayValue;
-using firebase::firestore::google_protobuf_NullValue_NULL_VALUE;
-using firebase::firestore::google_firestore_v1_MapValue_FieldsEntry;
-using firebase::firestore::google_type_LatLng;
-using firebase::firestore::google_protobuf_Timestamp;
+using firebase::firestore::util::ThrowInvalidArgument;
 using nanopb::StringReader;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -339,6 +342,42 @@ NS_ASSUME_NONNULL_BEGIN
   return std::move(result);
 }
 
+- (Message<google_firestore_v1_Value>)parseVectorValue:(FIRVectorValue *)vectorValue
+                                               context:(ParseContext &&)context {
+  __block Message<google_firestore_v1_Value> result;
+  result->which_value_type = google_firestore_v1_Value_map_value_tag;
+  result->map_value = {};
+
+  result->map_value.fields_count = 2;
+  result->map_value.fields = nanopb::MakeArray<google_firestore_v1_MapValue_FieldsEntry>(2);
+
+  result->map_value.fields[0].key = nanopb::CopyBytesArray(model::kTypeValueFieldKey);
+  result->map_value.fields[0].value = *[self encodeStringValue:MakeString(@"__vector__")].release();
+
+  NSArray<NSNumber *> *vectorArray = vectorValue.array;
+
+  __block Message<google_firestore_v1_Value> arrayMessage;
+  arrayMessage->which_value_type = google_firestore_v1_Value_array_value_tag;
+  arrayMessage->array_value.values_count = CheckedSize([vectorArray count]);
+  arrayMessage->array_value.values =
+      nanopb::MakeArray<google_firestore_v1_Value>(arrayMessage->array_value.values_count);
+
+  [vectorArray enumerateObjectsUsingBlock:^(id entry, NSUInteger idx, BOOL *) {
+    if (![entry isKindOfClass:[NSNumber class]]) {
+      ThrowInvalidArgument("VectorValues must only contain numeric values.",
+                           context.FieldDescription());
+    }
+
+    // Vector values must always use Double encoding
+    arrayMessage->array_value.values[idx] = *[self encodeDouble:[entry doubleValue]].release();
+  }];
+
+  result->map_value.fields[1].key = nanopb::CopyBytesArray(model::kVectorValueFieldKey);
+  result->map_value.fields[1].value = *arrayMessage.release();
+
+  return std::move(result);
+}
+
 - (Message<google_firestore_v1_Value>)parseArray:(NSArray<id> *)array
                                          context:(ParseContext &&)context {
   __block Message<google_firestore_v1_Value> result;
@@ -351,7 +390,7 @@ NS_ASSUME_NONNULL_BEGIN
     auto parsedEntry = [self parseData:entry context:context.ChildContext(idx)];
     if (!parsedEntry) {
       // Just include nulls in the array for fields being replaced with a sentinel.
-      parsedEntry = NullValue();
+      parsedEntry.emplace(DeepClone(NullValue()));
     }
     result->array_value.values[idx] = *parsedEntry->release();
   }];
@@ -432,7 +471,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (Message<google_firestore_v1_Value>)parseScalarValue:(nullable id)input
                                                context:(ParseContext &&)context {
   if (!input || [input isMemberOfClass:[NSNull class]]) {
-    return NullValue();
+    return DeepClone(NullValue());
 
   } else if ([input isKindOfClass:[NSNumber class]]) {
     // Recover the underlying type of the number, using the method described here:
@@ -527,7 +566,9 @@ NS_ASSUME_NONNULL_BEGIN
           _databaseID.database_id(), context.FieldDescription());
     }
     return [self encodeReference:_databaseID key:reference.key];
-
+  } else if ([input isKindOfClass:[FIRVectorValue class]]) {
+    FIRVectorValue *vector = input;
+    return [self parseVectorValue:vector context:std::move(context)];
   } else {
     ThrowInvalidArgument("Unsupported type: %s%s", NSStringFromClass([input class]),
                          context.FieldDescription());

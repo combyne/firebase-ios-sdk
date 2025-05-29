@@ -42,6 +42,7 @@
 #include "Firestore/core/include/firebase/firestore/timestamp.h"
 #include "Firestore/core/src/core/bound.h"
 #include "Firestore/core/src/core/field_filter.h"
+#include "Firestore/core/src/core/filter.h"
 #include "Firestore/core/src/core/query.h"
 #include "Firestore/core/src/local/target_data.h"
 #include "Firestore/core/src/model/delete_mutation.h"
@@ -74,7 +75,7 @@ namespace {
 
 namespace v1 = google::firestore::v1;
 using core::Bound;
-using core::FilterList;
+using google::protobuf::Int32Value;
 using google::protobuf::util::MessageDifferencer;
 using local::QueryPurpose;
 using local::TargetData;
@@ -108,6 +109,7 @@ using nanopb::ProtobufSerialize;
 using nanopb::StringReader;
 using nanopb::Writer;
 using remote::Serializer;
+using testutil::AndFilters;
 using testutil::Array;
 using testutil::Bytes;
 using testutil::DeletedDoc;
@@ -116,6 +118,7 @@ using testutil::Filter;
 using testutil::Key;
 using testutil::Map;
 using testutil::OrderBy;
+using testutil::OrFilters;
 using testutil::Query;
 using testutil::Ref;
 using testutil::Value;
@@ -554,11 +557,11 @@ class SerializerTest : public ::testing::Test {
 
   void ExpectDeserializationRoundTrip(
       const core::Filter& model, const v1::StructuredQuery::Filter& proto) {
-    FilterList actual_model =
+    std::vector<core::Filter> actual_model =
         Decode<google_firestore_v1_StructuredQuery_Filter>(
             std::mem_fn(&Serializer::DecodeFilters), proto);
 
-    EXPECT_EQ(FilterList{model}, actual_model);
+    EXPECT_EQ(std::vector<core::Filter>{model}, actual_model);
   }
 
   template <typename T>
@@ -818,6 +821,24 @@ TEST_F(SerializerTest, EncodesNestedObjects) {
   ExpectRoundTrip(model, proto, TypeOrder::kMap);
 }
 
+TEST_F(SerializerTest, EncodesVectorValue) {
+  Message<google_firestore_v1_Value> model =
+      Map("__type__", "__vector__", "value", Array(1.0, 2.0, 3.0));
+
+  v1::Value array_proto;
+  *array_proto.mutable_array_value()->add_values() = ValueProto(1.0);
+  *array_proto.mutable_array_value()->add_values() = ValueProto(2.0);
+  *array_proto.mutable_array_value()->add_values() = ValueProto(3.0);
+
+  v1::Value proto;
+  google::protobuf::Map<std::string, v1::Value>* fields =
+      proto.mutable_map_value()->mutable_fields();
+  (*fields)["__type__"] = ValueProto("__vector__");
+  (*fields)["value"] = array_proto;
+
+  ExpectRoundTrip(model, proto, TypeOrder::kVector);
+}
+
 TEST_F(SerializerTest, EncodesFieldValuesWithRepeatedEntries) {
   // Technically, serialized Value protos can contain multiple values. (The last
   // one "wins".) However, well-behaved proto emitters (such as libprotobuf)
@@ -1057,13 +1078,13 @@ TEST_F(SerializerTest, EncodesEmptyDocument) {
 TEST_F(SerializerTest, EncodesNonEmptyDocument) {
   DocumentKey key = DocumentKey::FromPathString("path/to/the/doc");
   ObjectValue fields{
-      Map("foo", "bar", "two", 2, "nested", Map("fourty-two", 42))};
+      Map("foo", "bar", "two", 2, "nested", Map("forty-two", 42))};
   SnapshotVersion update_time = SnapshotVersion{{1234, 5678}};
 
   v1::Value inner_proto;
   google::protobuf::Map<std::string, v1::Value>& inner_fields =
       *inner_proto.mutable_map_value()->mutable_fields();
-  inner_fields["fourty-two"] = ValueProto(int64_t{42});
+  inner_fields["forty-two"] = ValueProto(int64_t{42});
 
   v1::BatchGetDocumentsResponse proto;
   v1::Document* doc_proto = proto.mutable_found();
@@ -1120,6 +1141,42 @@ TEST_F(SerializerTest, EncodesFirstLevelKeyQueries) {
 
   SCOPED_TRACE("EncodesFirstLevelKeyQueries");
   ExpectRoundTrip(model, proto);
+}
+
+TEST_F(SerializerTest, EncodesTargetDataWithExpectedResumeType) {
+  TargetData target = CreateTargetData("docs/1");
+
+  {
+    SCOPED_TRACE("EncodesTargetDataWithoutResumeType");
+    v1::Target proto;
+    proto.mutable_documents()->add_documents(ResourceName("docs/1"));
+    proto.set_target_id(1);
+    ExpectRoundTrip(target, proto);
+  }
+
+  {
+    SCOPED_TRACE("EncodesTargetDataWithResumeToken");
+    v1::Target proto;
+    proto.mutable_documents()->add_documents(ResourceName("docs/1"));
+    proto.set_target_id(1);
+    proto.set_resume_token("resume_token");
+    ExpectRoundTrip(target.WithResumeToken(nanopb::ByteString{"resume_token"},
+                                           model::SnapshotVersion::None()),
+                    proto);
+  }
+
+  {
+    SCOPED_TRACE("EncodesTargetDataWithResumeByReadTime");
+    v1::Target proto;
+    proto.mutable_documents()->add_documents(ResourceName("docs/1"));
+    proto.set_target_id(1);
+    proto.mutable_read_time()->set_seconds(1000);
+    proto.mutable_read_time()->set_nanos(42);
+    ExpectRoundTrip(
+        target.WithResumeToken(nanopb::ByteString{""},
+                               model::SnapshotVersion(Timestamp(1000, 42))),
+        proto);
+  }
 }
 
 TEST_F(SerializerTest, EncodesFirstLevelAncestorQueries) {
@@ -1264,6 +1321,76 @@ TEST_F(SerializerTest, EncodesMultipleFiltersOnDeeperCollections) {
   ExpectRoundTrip(model, proto);
 }
 
+TEST_F(SerializerTest, EncodesCompositeFiltersOnDeeperCollections) {
+  // (prop < 42) || (author == "cheryllin" && tags array-contains
+  // "pending")
+  core::Query q =
+      Query("rooms/1/messages/10/attachments")
+          .AddingFilter(OrFilters(
+              {Filter("prop", "<", 42),
+               AndFilters({Filter("author", "==", "cheryllin"),
+                           Filter("tags", "array-contains", "pending")})}));
+  TargetData model = CreateTargetData(std::move(q));
+
+  v1::Target proto;
+  proto.mutable_query()->set_parent(ResourceName("rooms/1/messages/10"));
+  proto.set_target_id(1);
+
+  v1::StructuredQuery::CollectionSelector from;
+  from.set_collection_id("attachments");
+  *proto.mutable_query()->mutable_structured_query()->add_from() =
+      std::move(from);
+
+  v1::StructuredQuery::Filter filter1;
+  v1::StructuredQuery::FieldFilter& field1 = *filter1.mutable_field_filter();
+  field1.mutable_field()->set_field_path("prop");
+  field1.set_op(v1::StructuredQuery::FieldFilter::LESS_THAN);
+  field1.mutable_value()->set_integer_value(42);
+
+  v1::StructuredQuery::Filter filter2;
+  v1::StructuredQuery::FieldFilter& field2 = *filter2.mutable_field_filter();
+  field2.mutable_field()->set_field_path("author");
+  field2.set_op(v1::StructuredQuery::FieldFilter::EQUAL);
+  field2.mutable_value()->set_string_value("cheryllin");
+
+  v1::StructuredQuery::Filter filter3;
+  v1::StructuredQuery::FieldFilter& field3 = *filter3.mutable_field_filter();
+  field3.mutable_field()->set_field_path("tags");
+  field3.set_op(v1::StructuredQuery::FieldFilter::ARRAY_CONTAINS);
+  field3.mutable_value()->set_string_value("pending");
+
+  v1::StructuredQuery::Filter filter4;
+  v1::StructuredQuery::CompositeFilter& and_composite =
+      *filter4.mutable_composite_filter();
+  and_composite.set_op(v1::StructuredQuery::CompositeFilter::AND);
+  *and_composite.add_filters() = std::move(filter2);
+  *and_composite.add_filters() = std::move(filter3);
+
+  v1::StructuredQuery::CompositeFilter& or_composite =
+      *proto.mutable_query()
+           ->mutable_structured_query()
+           ->mutable_where()
+           ->mutable_composite_filter();
+  or_composite.set_op(v1::StructuredQuery::CompositeFilter::OR);
+  *or_composite.add_filters() = std::move(filter1);
+  *or_composite.add_filters() = std::move(filter4);
+
+  v1::StructuredQuery::Order order1;
+  order1.mutable_field()->set_field_path("prop");
+  order1.set_direction(v1::StructuredQuery::ASCENDING);
+  *proto.mutable_query()->mutable_structured_query()->add_order_by() =
+      std::move(order1);
+
+  v1::StructuredQuery::Order order2;
+  order2.mutable_field()->set_field_path(FieldPath::kDocumentKeyPath);
+  order2.set_direction(v1::StructuredQuery::ASCENDING);
+  *proto.mutable_query()->mutable_structured_query()->add_order_by() =
+      std::move(order2);
+
+  SCOPED_TRACE("EncodesCompositeFiltersOnDeeperCollections");
+  ExpectRoundTrip(model, proto);
+}
+
 TEST_F(SerializerTest, EncodesNullFilter) {
   SCOPED_TRACE("EncodesNullFilter");
   ExpectUnaryOperator("==", Value(nullptr),
@@ -1320,9 +1447,9 @@ TEST_F(SerializerTest, EncodesSortOrders) {
 TEST_F(SerializerTest, EncodesBounds) {
   core::Query q = Query("docs")
                       .StartingAt(Bound::FromValue(Array("prop", 42),
-                                                   /*is_before=*/false))
+                                                   /*inclusive=*/false))
                       .EndingAt(Bound::FromValue(Array("author", "dimond"),
-                                                 /*is_before=*/true));
+                                                 /*inclusive=*/false));
   TargetData model = CreateTargetData(std::move(q));
 
   v1::Target proto;
@@ -1417,7 +1544,7 @@ TEST_F(SerializerTest, EncodesResumeTokens) {
   core::Query q = Query("docs");
   TargetData model(q.ToTarget(), 1, 0, QueryPurpose::Listen,
                    SnapshotVersion::None(), SnapshotVersion::None(),
-                   Bytes({1, 2, 3}));
+                   Bytes({1, 2, 3}), /*expected_count=*/absl::nullopt);
 
   v1::Target proto;
   proto.mutable_query()->set_parent(ResourceName(""));
@@ -1437,6 +1564,63 @@ TEST_F(SerializerTest, EncodesResumeTokens) {
   proto.set_resume_token("\001\002\003");
 
   SCOPED_TRACE("EncodesResumeTokens");
+  ExpectRoundTrip(model, proto);
+}
+
+TEST_F(SerializerTest, EncodesExpectedCount) {
+  core::Query q = Query("docs");
+  TargetData model(q.ToTarget(), 1, 0, QueryPurpose::Listen,
+                   SnapshotVersion::None(), SnapshotVersion::None(),
+                   Bytes({1, 2, 3}), /*expected_count=*/1234);
+
+  v1::Target proto;
+  proto.mutable_query()->set_parent(ResourceName(""));
+  proto.set_target_id(1);
+
+  v1::StructuredQuery::CollectionSelector from;
+  from.set_collection_id("docs");
+  *proto.mutable_query()->mutable_structured_query()->add_from() =
+      std::move(from);
+
+  v1::StructuredQuery::Order order;
+  order.mutable_field()->set_field_path(FieldPath::kDocumentKeyPath);
+  order.set_direction(v1::StructuredQuery::ASCENDING);
+  *proto.mutable_query()->mutable_structured_query()->add_order_by() =
+      std::move(order);
+
+  proto.set_resume_token("\001\002\003");
+
+  google::protobuf::Int32Value int32_value;
+  google::protobuf::Int32Value* expected_count = int32_value.New();
+  expected_count->set_value(1234);
+  proto.set_allocated_expected_count(expected_count);
+
+  EXPECT_TRUE(proto.has_expected_count());
+  ExpectRoundTrip(model, proto);
+}
+
+TEST_F(SerializerTest, EncodeExpectedCountSkippedWithoutResumeToken) {
+  core::Query q = Query("docs");
+  TargetData model(q.ToTarget(), 1, 0, QueryPurpose::Listen,
+                   SnapshotVersion::None(), SnapshotVersion::None(),
+                   ByteString(), /*expected_count=*/1234);
+
+  v1::Target proto;
+  proto.mutable_query()->set_parent(ResourceName(""));
+  proto.set_target_id(1);
+
+  v1::StructuredQuery::CollectionSelector from;
+  from.set_collection_id("docs");
+  *proto.mutable_query()->mutable_structured_query()->add_from() =
+      std::move(from);
+
+  v1::StructuredQuery::Order order;
+  order.mutable_field()->set_field_path(FieldPath::kDocumentKeyPath);
+  order.set_direction(v1::StructuredQuery::ASCENDING);
+  *proto.mutable_query()->mutable_structured_query()->add_order_by() =
+      std::move(order);
+
+  EXPECT_FALSE(proto.has_expected_count());
   ExpectRoundTrip(model, proto);
 }
 
@@ -1608,7 +1792,8 @@ TEST_F(SerializerTest, DecodesListenResponseWithDocumentRemove) {
 }
 
 TEST_F(SerializerTest, DecodesListenResponseWithExistenceFilter) {
-  ExistenceFilterWatchChange model(ExistenceFilter(2), 100);
+  ExistenceFilterWatchChange model(
+      ExistenceFilter(2, /*bloom_filter=*/absl::nullopt), 100);
 
   v1::ListenResponse proto;
 
@@ -1616,6 +1801,26 @@ TEST_F(SerializerTest, DecodesListenResponseWithExistenceFilter) {
   proto.mutable_filter()->set_target_id(100);
 
   SCOPED_TRACE("DecodesListenResponseWithExistenceFilter");
+  ExpectDeserializationRoundTrip(model, proto);
+}
+
+TEST_F(SerializerTest,
+       DecodesListenResponseWithExistenceFilterWhenBloomFilterNotNull) {
+  ExistenceFilterWatchChange model(
+      ExistenceFilter(555, BloomFilterParameters{{0x42, 0xFE}, 7, 33}), 999);
+
+  v1::ListenResponse proto;
+  proto.mutable_filter()->set_count(555);
+  proto.mutable_filter()->set_target_id(999);
+
+  v1::BloomFilter* bloom_filter =
+      proto.mutable_filter()->mutable_unchanged_names();
+  bloom_filter->set_hash_count(33);
+  bloom_filter->mutable_bits()->set_padding(7);
+  bloom_filter->mutable_bits()->set_bitmap("\x42\xFE");
+
+  SCOPED_TRACE(
+      "DecodesListenResponseWithExistenceFilterWhenBloomFilterNotNull");
   ExpectDeserializationRoundTrip(model, proto);
 }
 
